@@ -13,8 +13,8 @@ export const AllPlayers = "AllPlayers" as const;
 export enum Difficulty {
     Easy = 1,
     Medium = 3,
-    Hard = 6,
-    Impossible = 12,
+    Hard = 9,
+    Impossible = 18,
 }
 
 export enum GameMap {
