@@ -11,24 +11,24 @@ export type Gold = number
 export const AllPlayers = "AllPlayers" as const;
 
 export enum Difficulty {
-    Easy = 1,
-    Medium = 3,
-    Hard = 9,
-    Impossible = 18,
+    Easy = "Easy",
+    Medium = "Medium",
+    Hard = "Hard",
+    Impossible = "Impossible",
 }
 
 export enum GameMap {
-    World,
-    Europe,
-    Mena,
-    NorthAmerica,
-    Oceania
+    World = "World",
+    Europe = "Europe",
+    Mena = "Mena",
+    NorthAmerica = "North America",
+    Oceania = "Oceania"
 }
 
 export enum GameType {
-    Singleplayer,
-    Public,
-    Private,
+    Singleplayer = "Singleplayer",
+    Public = "Public",
+    Private = "Private",
 }
 
 export interface UnitInfo {

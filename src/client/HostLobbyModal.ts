@@ -167,13 +167,13 @@ export class HostLobbyModal extends LitElement {
   }
 
   private async handleMapChange(e: Event) {
-    this.selectedMap = Number((e.target as HTMLSelectElement).value) as GameMap;
+    this.selectedMap = String((e.target as HTMLSelectElement).value) as GameMap;
     console.log(`updating map to ${this.selectedMap}`)
     this.putGameConfig()
   }
 
   private async handleDifficultyChange(e: Event) {
-    this.selectedDiffculty = Number((e.target as HTMLSelectElement).value) as Difficulty;
+    this.selectedDiffculty = String((e.target as HTMLSelectElement).value) as Difficulty;
     console.log(`updating difficulty to ${this.selectedDiffculty}`)
     this.putGameConfig()
   }

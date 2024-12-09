@@ -14,6 +14,26 @@ export async function archive(gameRecord: GameRecord) {
         await file.save(JSON.stringify(GameRecordSchema.parse(gameRecord)), {
             contentType: 'application/json'
         });
+        // Save metadata to BigQuery
+        const row = {
+            id: gameRecord.id,
+            start: new Date(gameRecord.startTimestampMS),
+            end: new Date(gameRecord.endTimestampMS),
+            duration_seconds: gameRecord.durationSeconds,
+            number_turns: gameRecord.num_turns,
+            usernames: gameRecord.usernames,
+            game_mode: gameRecord.gameConfig.gameType,
+            winner: null,
+            difficulty: gameRecord.gameConfig.difficulty,
+            map: gameRecord.gameConfig.gameMap,
+        };
+
+        await bigquery
+            .dataset('game_archive')
+            .table('game_results')
+            .insert([row]);
+
+        console.log(`wrote game metadata to BigQuery: ${gameRecord.id}`);
     } catch (error) {
         console.log(`error writing to gcs: ${error}`)
     }

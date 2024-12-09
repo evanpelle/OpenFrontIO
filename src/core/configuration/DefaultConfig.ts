@@ -1,4 +1,4 @@
-import { GameType, Gold, Player, PlayerInfo, PlayerType, TerrainType, TerraNullius, Tick, Tile, Unit, UnitInfo, UnitType } from "../game/Game";
+import { Difficulty, GameType, Gold, Player, PlayerInfo, PlayerType, TerrainType, TerraNullius, Tick, Tile, Unit, UnitInfo, UnitType } from "../game/Game";
 import { GameID } from "../Schemas";
 import { assertNever, distSort, manhattanDist, simpleHash, within } from "../Util";
 import { Config, Theme } from "./Config";
@@ -7,6 +7,19 @@ import { pastelTheme } from "./PastelTheme";
 
 
 export class DefaultConfig implements Config {
+    difficultyModifier(difficulty: Difficulty): number {
+        switch (difficulty) {
+            case Difficulty.Easy:
+                return 1
+            case Difficulty.Medium:
+                return 3
+            case Difficulty.Hard:
+                return 9
+            case Difficulty.Impossible:
+                return 18
+        }
+    }
+
 
     cityPopulationIncrease(): number {
         return 250_000

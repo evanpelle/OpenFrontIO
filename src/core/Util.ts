@@ -246,6 +246,7 @@ export function CreateGameRecord(id: GameID, gameConfig: GameConfig, turns: Turn
     }
     record.usernames = Array.from(usernames)
     record.durationSeconds = Math.floor((record.endTimestampMS - record.startTimestampMS) / 1000)
+    record.num_turns = turns.length
     return record;
 }
 

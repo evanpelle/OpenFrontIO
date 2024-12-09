@@ -84,7 +84,7 @@ export class SinglePlayerModal extends LitElement {
         .filter(([key]) => isNaN(Number(key)))
         .map(([key, value]) => html`
                   <option value=${value} ?selected=${this.selectedMap === value}>
-                    ${key}
+                    ${value}
                   </option>
                 `)}
             </select>
@@ -96,7 +96,7 @@ export class SinglePlayerModal extends LitElement {
         .filter(([key]) => isNaN(Number(key)))
         .map(([key, value]) => html`
                   <option value=${value} ?selected=${this.selectedDifficulty === value}>
-                    ${key}
+                    ${value}
                   </option>
                 `)}
             </select>
@@ -117,10 +117,10 @@ export class SinglePlayerModal extends LitElement {
   }
 
   private handleMapChange(e: Event) {
-    this.selectedMap = Number((e.target as HTMLSelectElement).value) as GameMap;
+    this.selectedMap = String((e.target as HTMLSelectElement).value) as GameMap;
   }
   private handleDifficultyChange(e: Event) {
-    this.selectedDifficulty = Number((e.target as HTMLSelectElement).value) as Difficulty;
+    this.selectedDifficulty = String((e.target as HTMLSelectElement).value) as Difficulty;
   }
   private startGame() {
     console.log(`Starting single player game with map: ${GameMap[this.selectedMap]}`);

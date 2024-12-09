@@ -242,5 +242,6 @@ export const GameRecordSchema = z.object({
     durationSeconds: z.number(),
     date: z.string(),
     usernames: z.array(z.string()),
+    num_turns: z.number(),
     turns: z.array(TurnSchema)
 })
