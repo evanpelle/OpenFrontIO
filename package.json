@@ -55,6 +55,7 @@
   },
   "dependencies": {
     "@datastructures-js/priority-queue": "^6.3.1",
+    "@google-cloud/bigquery": "^7.9.1",
     "@google-cloud/storage": "^7.14.0",
     "@types/dompurify": "^3.0.5",
     "@types/express": "^4.17.21",

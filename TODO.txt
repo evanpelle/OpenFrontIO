@@ -216,15 +216,20 @@
 * bufix: mini map doesn't load in time DONE 12/7/2023
 * bugfix: private game host game doesn't start DONE 12/8/2023
 * add NA map DONE 12/8/2023
-* add Oceania map 12/8/2023
+* add Oceania map DONE 12/8/2023
+* max price for units DONE 12/9/2024
+* better unit scaling DONE 12/9/2024
 * store in BigQuery
+* make hard & impossible harder
 * clicking on a player's name in the rank UI should teleport you to him (pretty useful to know who's who and to locate small nations)
 * record commit hash of game
 * record game winner
+* add panama canal NA
+* make boats work on lakes (& oceania)
 * replay stored games
-* max price for units
 * when player dies, don't remove atom bombs
 * remove alliance when player dies
+* only check islands/clusters when being attacked
 * alert on attack
 * alert on unit captured or destroyed
 * nuking an enemy and accidentally destroying a trade ship shouldn't break the alliance and make you a traitor

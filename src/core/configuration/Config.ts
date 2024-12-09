@@ -64,7 +64,6 @@ export interface Config {
 	defensePostRange(): number
 	defensePostDefenseBonus(): number
 	falloutDefenseModifier(): number
-	maxUnitCost(): number
 }
 
 export interface Theme {

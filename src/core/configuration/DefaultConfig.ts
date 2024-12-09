@@ -8,10 +8,6 @@ import { pastelTheme } from "./PastelTheme";
 
 export class DefaultConfig implements Config {
 
-    maxUnitCost(): number {
-        return 99_999_999
-    }
-
     cityPopulationIncrease(): number {
         return 250_000
     }
@@ -38,71 +34,73 @@ export class DefaultConfig implements Config {
     }
 
     unitInfo(type: UnitType): UnitInfo {
-        const fn = () => {
-            switch (type) {
-                case UnitType.TransportShip:
-                    return {
-                        cost: () => 0,
-                        territoryBound: false
-                    }
-                case UnitType.Destroyer:
-                    return {
-                        cost: (p: Player) => (p.units(UnitType.Destroyer).length + 1) * 250_000,
-                        territoryBound: false
-                    }
-                case UnitType.Battleship:
-                    return {
-                        cost: (p: Player) => (p.units(UnitType.Battleship).length + 1) * 500_000,
-                        territoryBound: false
-                    }
-                case UnitType.Shell:
-                    return {
-                        cost: (p: Player) => 0,
-                        territoryBound: false
-                    }
-                case UnitType.Port:
-                    return {
-                        cost: (p: Player) => Math.pow(2, p.units(UnitType.Port).length) * 250_000,
-                        territoryBound: true
-                    }
-                case UnitType.AtomBomb:
-                    return {
-                        cost: () => 1_000_000,
-                        territoryBound: false
-                    }
-                case UnitType.HydrogenBomb:
-                    return {
-                        cost: () => 5_000_000,
-                        territoryBound: false
-                    }
-                case UnitType.TradeShip:
-                    return {
-                        cost: () => 0,
-                        territoryBound: false
-                    }
-                case UnitType.MissileSilo:
-                    return {
-                        cost: () => 1_000_000,
-                        territoryBound: true
-                    }
-                case UnitType.DefensePost:
-                    return {
-                        cost: (p: Player) => Math.pow(2, p.units(UnitType.DefensePost).length) * 100_000,
-                        territoryBound: true
-                    }
-                case UnitType.City:
-                    return {
-                        cost: (p: Player) => Math.pow(2, p.units(UnitType.City).length) * 250_000,
-                        territoryBound: true
-                    }
-                default:
-                    assertNever(type)
-            }
+        switch (type) {
+            case UnitType.TransportShip:
+                return {
+                    cost: () => 0,
+                    territoryBound: false
+                }
+            case UnitType.Destroyer:
+                return {
+                    cost: (p: Player) => (p.units(UnitType.Destroyer).length + 1) * 250_000,
+                    territoryBound: false
+                }
+            case UnitType.Battleship:
+                return {
+                    cost: (p: Player) => (p.units(UnitType.Battleship).length + 1) * 500_000,
+                    territoryBound: false
+                }
+            case UnitType.Shell:
+                return {
+                    cost: () => 0,
+                    territoryBound: false
+                }
+            case UnitType.Port:
+                return {
+                    cost: (p: Player) =>
+                        Math.min(
+                            10_000_000,
+                            Math.pow(2, p.units(UnitType.Port).length) * 250_000
+                        ),
+                    territoryBound: true
+                }
+            case UnitType.AtomBomb:
+                return {
+                    cost: () => 1_000_000,
+                    territoryBound: false
+                }
+            case UnitType.HydrogenBomb:
+                return {
+                    cost: () => 5_000_000,
+                    territoryBound: false
+                }
+            case UnitType.TradeShip:
+                return {
+                    cost: () => 0,
+                    territoryBound: false
+                }
+            case UnitType.MissileSilo:
+                return {
+                    cost: () => 1_000_000,
+                    territoryBound: true
+                }
+            case UnitType.DefensePost:
+                return {
+                    cost: (p: Player) =>
+                        Math.min(
+                            500_000,
+                            (p.units(UnitType.DefensePost).length + 1) * 100_000
+                        ),
+                    territoryBound: true
+                }
+            case UnitType.City:
+                return {
+                    cost: (p: Player) => Math.pow(2, p.units(UnitType.City).length) * 125_000,
+                    territoryBound: true
+                }
+            default:
+                assertNever(type)
         }
-        const ui = fn()
-        const oldCost = ui.cost
-        ui.cost = (p: Player) => Math.min(this.maxUnitCost(), oldCost(p))
-        return ui
     }
     defaultDonationAmount(sender: Player): number {
         return Math.floor(sender.troops() / 3)

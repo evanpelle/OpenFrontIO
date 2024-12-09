@@ -1,7 +1,10 @@
 import { GameConfig, GameID, GameRecord, GameRecordSchema, Turn } from "../core/Schemas";
 import { Storage } from '@google-cloud/storage';
+import { BigQuery } from '@google-cloud/bigquery';
 
 const storage = new Storage();
+const bigquery = new BigQuery();
+
 
 export async function archive(gameRecord: GameRecord) {
     console.log(`writing game ${gameRecord.id} to gcs`)
