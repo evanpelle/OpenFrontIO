@@ -224,7 +224,10 @@
 * emojis should be displayed on top of your name not under it DONE 12/9/2024
 * the notification for a successful trade should be shorter, example: " 70k Gold from trade with "X" " DONE 12/9/2024
 * countries don't actually spawn with some randomness, it's always the same exact spawn DONE 12/9/2024
-* you should get a notification and a reward (some money) for eliminating an enemy (perhaps take wtvr gold the enemy had)
+* you should get a notification and a reward (some money) for eliminating an enemy DONE 12/9/2024
+* alert on attack
+* alert on unit captured or destroyed
+* only check islands/clusters when being attacked
 * store in BigQuery
 * make boats work on lakes (& oceania)
 * record game winner
@@ -233,11 +236,9 @@
 * record commit hash of game
 * when player dies, don't remove atom bombs
 * remove alliance when player dies
-* only check islands/clusters when being attacked
-* alert on attack
-* alert on unit captured or destroyed
 * put delay on adjust troop ratio to reduce number of messages
 * make clientID & playerID smaller
+* remove dash from game id
 * allow longer names and allow them to be displayed in the Rank UI not be cut (many are cut for now, even for countries)
 * pause button in single player
 * when hovering over another player have the name not appear ontop of the exit cross

@@ -1,5 +1,5 @@
 import { PriorityQueue } from "@datastructures-js/priority-queue";
-import { Cell, Execution, MutableGame, MutablePlayer, Player, PlayerID, TerrainType, TerraNullius, Tile } from "../game/Game";
+import { Cell, Execution, MutableGame, MutablePlayer, Player, PlayerID, PlayerType, TerrainType, TerraNullius, Tile } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { manhattanDist } from "../Util";
 import { MessageType } from "../../client/graphics/layers/EventsDisplay";
@@ -86,6 +86,9 @@ export class AttackExecution implements Execution {
                     return
                 }
             }
+        }
+        if (this._owner.type() != PlayerType.Bot && this.target.isPlayer() && this.target.type() == PlayerType.Human) {
+            mg.displayMessage(`You are being attacked by ${this._owner.displayName()}`, MessageType.ERROR, this._targetID)
         }
         if (this.sourceCell != null) {
             this.addNeighbors(mg.tile(this.sourceCell))
