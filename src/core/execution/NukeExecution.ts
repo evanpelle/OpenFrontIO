@@ -74,23 +74,29 @@ export class NukeExecution implements Execution {
         const ratio = Object.fromEntries(
             this.mg.players().map(p => [p.id(), (p.troops() + p.workers()) / p.numTilesOwned()])
         )
-        const others = new Set<MutablePlayer>()
+        const attacked = new Map<MutablePlayer, number>()
         for (const tile of toDestroy) {
             const owner = tile.owner()
             if (owner.isPlayer()) {
                 const mp = this.mg.player(owner.id())
                 mp.relinquish(tile)
                 mp.removeTroops(2 * ratio[mp.id()])
-                others.add(mp)
+                if (!attacked.has(mp)) {
+                    attacked.set(mp, 0)
+                }
+                const prev = attacked.get(mp)
+                attacked.set(mp, prev + 1)
             }
             if (tile.isLand()) {
                 this.mg.addFallout(tile)
             }
         }
-        for (const other of others) {
-            const alliance = this.player.allianceWith(other)
-            if (alliance != null) {
-                this.player.breakAlliance(alliance)
+        for (const [other, tilesDestroyed] of attacked) {
+            if (tilesDestroyed > 100) {
+                const alliance = this.player.allianceWith(other)
+                if (alliance != null) {
+                    this.player.breakAlliance(alliance)
+                }
             }
         }
 

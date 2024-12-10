@@ -220,8 +220,13 @@
 * max price for units DONE 12/9/2024
 * better unit scaling DONE 12/9/2024
 * make hard & impossible harder DONE 12/9/2024
+* clicking on a player's name in the rank UI should teleport you to him DONE 12/9/2024
+* nuking an enemy and accidentally destroying a trade ship shouldn't break the alliance and make you a traitor
+* emojis should be displayed on top of your name not under it
+* the notification for a successful trade should be shorter, example: " 70k Gold from trade with "X" "
+* countries don't actually spawn with some randomness, it's always the same exact spawn
+* you should get a notification and a reward (some money) for eliminating an enemy (perhaps take wtvr gold the enemy had)
 * store in BigQuery
-* clicking on a player's name in the rank UI should teleport you to him (pretty useful to know who's who and to locate small nations)
 * make boats work on lakes (& oceania)
 * record game winner
 * add panama canal NA
@@ -234,12 +239,12 @@
 * alert on unit captured or destroyed
 * put delay on adjust troop ratio to reduce number of messages
 * make clientID & playerID smaller
-* nuking an enemy and accidentally destroying a trade ship shouldn't break the alliance and make you a traitor
-* you should get a notification and a reward (some money) for eliminating an enemy (perhaps take wtvr gold the enemy had)
-* emojis should be displayed on top of your name not under it
-* the notification for a successful trade should be shorter, example: " 70k Gold from trade with "X" "
-* countries don't actually spawn with some randomness, it's always the same exact spawn
 * allow longer names and allow them to be displayed in the Rank UI not be cut (many are cut for now, even for countries)
+* pause button in single player
+* when hovering over another player have the name not appear ontop of the exit cross
+* have a visual thing of who your attacking and how many boats you sent
+* make the sliders bigger. Like vertically.
+* add way to hide leaderboard n such
 * create behavior tests
 * create perf test
 
