@@ -146,6 +146,14 @@ export function calculateBoundingBox(borderTiles: ReadonlySet<Tile>): { min: Cel
     return { min: new Cell(minX, minY), max: new Cell(maxX, maxY) }
 }
 
+export function calculateBoundingBoxCenter(borderTiles: ReadonlySet<Tile>): Cell {
+    const { min, max } = calculateBoundingBox(borderTiles)
+    return new Cell(
+        min.x + Math.floor((max.x - min.x) / 2),
+        min.y + Math.floor((max.y - min.y) / 2)
+    )
+}
+
 export function inscribed(outer: { min: Cell; max: Cell }, inner: { min: Cell; max: Cell }): boolean {
     return (
         outer.min.x <= inner.min.x &&
