@@ -1,6 +1,7 @@
-import {EventBus} from "../../core/EventBus"
-import {Cell, Game} from "../../core/game/Game";
-import {ZoomEvent, DragEvent} from "../InputHandler";
+import { EventBus } from "../../core/EventBus"
+import { Cell, Game } from "../../core/game/Game";
+import { ZoomEvent, DragEvent } from "../InputHandler";
+import { GoToPlayerEvent } from "./layers/Leaderboard";
 
 export class TransformHandler {
     public scale: number = 1.8
@@ -10,6 +11,7 @@ export class TransformHandler {
     constructor(private game: Game, private eventBus: EventBus, private canvas: HTMLCanvasElement) {
         this.eventBus.on(ZoomEvent, (e) => this.onZoom(e))
         this.eventBus.on(DragEvent, (e) => this.onMove(e))
+        this.eventBus.on(GoToPlayerEvent, (e) => this.onGoToPlayer(e))
     }
 
     boundingRect(): DOMRect {
@@ -53,7 +55,6 @@ export class TransformHandler {
 
     screenBoundingRect(): [Cell, Cell] {
 
-        // Calculate the world point we want to zoom towards
         const LeftX = (- this.game.width() / 2) / this.scale + this.offsetX;
         const TopY = (- this.game.height() / 2) / this.scale + this.offsetY;
 
@@ -61,7 +62,6 @@ export class TransformHandler {
         const gameTopY = TopY + this.game.height() / 2
 
 
-        // Calculate the world point we want to zoom towards
         const rightX = (screen.width - this.game.width() / 2) / this.scale + this.offsetX;
         const rightY = (screen.height - this.game.height() / 2) / this.scale + this.offsetY;
 
@@ -69,6 +69,18 @@ export class TransformHandler {
         const gameBottomY = rightY + this.game.height() / 2
 
         return [new Cell(Math.floor(gameLeftX), Math.floor(gameTopY)), new Cell(Math.floor(gameRightX), Math.floor(gameBottomY))]
+    }
+
+    screenCenter(): Cell {
+        const [upperLeft, bottomRight] = this.screenBoundingRect()
+        return new Cell(
+             Math.floor((bottomRight.x - upperLeft.x) / 2),
+            Math.floor((bottomRight.y - upperLeft.y) / 2)
+        )
+    }
+
+    onGoToPlayer(event: GoToPlayerEvent) {
+
     }
 
     onZoom(event: ZoomEvent) {

@@ -4,12 +4,18 @@ import { Layer } from './Layer';
 import { Game, Player } from '../../../core/game/Game';
 import { ClientID } from '../../../core/Schemas';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { EventBus, GameEvent } from '../../../core/EventBus';
 
 interface Entry {
   name: string
   position: number
   score: string
   isMyPlayer: boolean
+  player: Player
+}
+
+export class GoToPlayerEvent implements GameEvent {
+  constructor(public player: Player) { }
 }
 
 @customElement('leader-board')
@@ -17,6 +23,7 @@ export class Leaderboard extends LitElement implements Layer {
 
   private game: Game
   public clientID: ClientID
+  public eventBus: EventBus
 
   init(game: Game) {
     this.game = game
@@ -51,7 +58,8 @@ export class Leaderboard extends LitElement implements Layer {
         name: player.displayName(),
         position: index + 1,
         score: formatPercentage(player.numTilesOwned() / this.game.numLandTiles()),
-        isMyPlayer: player == myPlayer
+        isMyPlayer: player == myPlayer,
+        player: player
       }));
 
     if (myPlayer != null && this.players.find(p => p.isMyPlayer) == null) {
@@ -69,11 +77,15 @@ export class Leaderboard extends LitElement implements Layer {
         position: place,
         score: formatPercentage(myPlayer.numTilesOwned() / this.game.numLandTiles()),
         isMyPlayer: true,
+        player: myPlayer
       })
     }
 
-
     this.requestUpdate()
+  }
+
+  private handleRowClick(player: Player) {
+    this.eventBus.emit(new GoToPlayerEvent(player))
   }
 
   renderLayer(context: CanvasRenderingContext2D) {
@@ -87,15 +99,15 @@ export class Leaderboard extends LitElement implements Layer {
     display: block;
   }
   img.emoji {
-    height: 1em;  // Match text height
-    width: auto;  // Maintain aspect ratio
+    height: 1em;
+    width: auto;
   }
   .leaderboard {
     position: fixed;
     top: 10px;
     left: 10px;
     z-index: 9999;
-    background-color: rgba(30, 30, 30, 0.7); /* Added transparency */
+    background-color: rgba(30, 30, 30, 0.7);
     padding: 10px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     border-radius: 10px;
@@ -103,7 +115,7 @@ export class Leaderboard extends LitElement implements Layer {
     max-height: 80vh;
     overflow-y: auto;
     width: 300px;
-    backdrop-filter: blur(5px); /* Optional: adds a blur effect to content behind the leaderboard */
+    backdrop-filter: blur(5px);
   }
   table {
     width: 100%;
@@ -112,11 +124,11 @@ export class Leaderboard extends LitElement implements Layer {
   th, td {
     padding: 8px;
     text-align: left;
-    border-bottom: 1px solid rgba(51, 51, 51, 0.2); /* Made border slightly transparent */
+    border-bottom: 1px solid rgba(51, 51, 51, 0.2);
     color: white;
   }
   th {
-    background-color: rgba(44, 44, 44, 0.5); /* Made header slightly transparent */
+    background-color: rgba(44, 44, 44, 0.5);
     color: white;
   }
   .myPlayer {
@@ -127,10 +139,14 @@ export class Leaderboard extends LitElement implements Layer {
     font-size: 1.3em;
   }
   tr:nth-child(even) {
-    background-color: rgba(44, 44, 44, 0.5); /* Made alternating rows slightly transparent */
+    background-color: rgba(44, 44, 44, 0.5);
   }
-  tr:hover {
-    background-color: rgba(58, 58, 58, 0.6); /* Made hover effect slightly transparent */
+  tbody tr {
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  tbody tr:hover {
+    background-color: rgba(78, 78, 78, 0.8);
   }
   .hidden {
     display: none !important;
@@ -160,8 +176,11 @@ export class Leaderboard extends LitElement implements Layer {
           </thead>
           <tbody>
             ${this.players
-        .map((player, index) => html`
-                <tr class="${player.isMyPlayer ? 'myPlayer' : 'otherPlayer'}">
+        .map((player) => html`
+                <tr 
+                  class="${player.isMyPlayer ? 'myPlayer' : 'otherPlayer'}"
+                  @click=${() => this.handleRowClick(player.player)}
+                >
                   <td>${player.position}</td>
                   <td>${unsafeHTML(player.name)}</td>
                   <td>${player.score}</td>

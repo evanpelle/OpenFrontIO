@@ -41,6 +41,7 @@ export function createRenderer(canvas: HTMLCanvasElement, game: Game, eventBus: 
 		console.error('EmojiTable element not found in the DOM');
 	}
 	leaderboard.clientID = clientID
+	leaderboard.eventBus = eventBus
 
 
 	const controlPanel = document.querySelector('control-panel') as ControlPanel;
