@@ -221,10 +221,9 @@
 * better unit scaling DONE 12/9/2024
 * make hard & impossible harder DONE 12/9/2024
 * clicking on a player's name in the rank UI should teleport you to him DONE 12/9/2024
-* nuking an enemy and accidentally destroying a trade ship shouldn't break the alliance and make you a traitor
-* emojis should be displayed on top of your name not under it
-* the notification for a successful trade should be shorter, example: " 70k Gold from trade with "X" "
-* countries don't actually spawn with some randomness, it's always the same exact spawn
+* emojis should be displayed on top of your name not under it DONE 12/9/2024
+* the notification for a successful trade should be shorter, example: " 70k Gold from trade with "X" " DONE 12/9/2024
+* countries don't actually spawn with some randomness, it's always the same exact spawn DONE 12/9/2024
 * you should get a notification and a reward (some money) for eliminating an enemy (perhaps take wtvr gold the enemy had)
 * store in BigQuery
 * make boats work on lakes (& oceania)

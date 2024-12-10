@@ -9,6 +9,7 @@ import { ParallelAStar, WorkerClient } from "../worker/WorkerClient";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { DestroyerExecution } from "./DestroyerExecution";
 import { BattleshipExecution } from "./BattleshipExecution";
+import { GameID } from "../Schemas";
 
 export class FakeHumanExecution implements Execution {
 
@@ -25,8 +26,8 @@ export class FakeHumanExecution implements Execution {
 
     private relations = new Map<Player, number>()
 
-    constructor(private worker: WorkerClient, private playerInfo: PlayerInfo, private cell: Cell, private strength: number) {
-        this.random = new PseudoRandom(simpleHash(playerInfo.id))
+    constructor(gameID: GameID, private worker: WorkerClient, private playerInfo: PlayerInfo, private cell: Cell, private strength: number) {
+        this.random = new PseudoRandom(simpleHash(playerInfo.id) + simpleHash(gameID))
     }
 
     init(mg: MutableGame, ticks: number) {

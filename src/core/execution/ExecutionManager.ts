@@ -117,6 +117,7 @@ export class Executor {
         const execs = []
         for (const nation of this.gs.nations()) {
             execs.push(new FakeHumanExecution(
+                this.gameID,
                 this.workerClient,
                 new PlayerInfo(
                     nation.name,

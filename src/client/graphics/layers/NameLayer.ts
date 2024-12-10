@@ -188,17 +188,6 @@ export class NameLayer implements Layer {
             );
         }
 
-        if (myPlayer != null) {
-            const emojis = render.player.outgoingEmojis().filter(e => e.recipient == AllPlayers || e.recipient == myPlayer)
-            if (emojis.length > 0) {
-                context.font = `${render.fontSize * 4}px ${this.theme.font()}`;
-                context.fillStyle = this.theme.playerInfoColor(render.player.id()).toHex();
-                context.textAlign = 'center';
-                context.textBaseline = 'middle';
-
-                context.fillText(emojis[0].emoji, nameCenterX, nameCenterY + render.fontSize / 2);
-            }
-        }
 
         context.textRendering = "optimizeSpeed";
 
@@ -211,6 +200,19 @@ export class NameLayer implements Layer {
         context.font = `bold ${render.fontSize}px ${this.theme.font()}`;
 
         context.fillText(renderTroops(render.player.troops()), nameCenterX, nameCenterY + render.fontSize);
+
+
+        if (myPlayer != null) {
+            const emojis = render.player.outgoingEmojis().filter(e => e.recipient == AllPlayers || e.recipient == myPlayer)
+            if (emojis.length > 0) {
+                context.font = `${render.fontSize * 4}px ${this.theme.font()}`;
+                context.fillStyle = this.theme.playerInfoColor(render.player.id()).toHex();
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+
+                context.fillText(emojis[0].emoji, nameCenterX, nameCenterY + render.fontSize / 2);
+            }
+        }
     }
 
     private getPlayer(): Player | null {
