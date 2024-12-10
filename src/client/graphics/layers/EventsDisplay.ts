@@ -11,7 +11,8 @@ import {
   Game,
   Player,
   PlayerID,
-  TargetPlayerEvent
+  TargetPlayerEvent,
+  UnitEvent
 } from "../../../core/game/Game";
 import { ClientID } from "../../../core/Schemas";
 import { Layer } from "./Layer";

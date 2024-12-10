@@ -1,3 +1,4 @@
+import { MessageType } from "../../client/graphics/layers/EventsDisplay";
 import { simpleHash } from "../Util";
 import { MutableUnit, Tile, TerraNullius, UnitType, Player, UnitInfo } from "./Game";
 import { GameImpl } from "./GameImpl";
@@ -46,14 +47,26 @@ export class UnitImpl implements MutableUnit {
     }
 
     setOwner(newOwner: Player): void {
+        const oldOwner = this._owner
         this._owner = newOwner as PlayerImpl
         this.g.fireUnitUpdateEvent(this, this.tile())
+        this.g.displayMessage(
+            `Your ${this.type()} was captured by ${newOwner.displayName()}`,
+            MessageType.ERROR,
+            oldOwner.id()
+        )
     }
 
     delete(): void {
+        if (!this.isActive()) {
+            throw new Error(`cannot delete ${this} not active`)
+        }
         this._owner._units = this._owner._units.filter(b => b != this);
         this._active = false;
         this.g.fireUnitUpdateEvent(this, this._tile);
+        if (this.type() != UnitType.AtomBomb && this.type() != UnitType.HydrogenBomb) {
+            this.g.displayMessage(`Your ${this.type()} was destroyed`, MessageType.ERROR, this.owner().id())
+        }
     }
     isActive(): boolean {
         return this._active;

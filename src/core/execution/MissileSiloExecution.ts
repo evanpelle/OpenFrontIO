@@ -28,12 +28,6 @@ export class MissileSiloExecution implements Execution {
             }
             this.silo = this.player.buildUnit(UnitType.MissileSilo, 0, tile)
         }
-
-        if (!this.silo.tile().hasOwner()) {
-            this.silo.delete()
-            this.active = false
-            return
-        }
     }
 
     owner(): MutablePlayer {
