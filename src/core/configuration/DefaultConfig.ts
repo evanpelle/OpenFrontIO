@@ -72,7 +72,7 @@ export class DefaultConfig implements Config {
                 return {
                     cost: (p: Player) =>
                         Math.min(
-                            10_000_000,
+                            1_000_000,
                             Math.pow(2, p.units(UnitType.Port).length) * 250_000
                         ),
                     territoryBound: true
@@ -108,7 +108,10 @@ export class DefaultConfig implements Config {
                 }
             case UnitType.City:
                 return {
-                    cost: (p: Player) => Math.pow(2, p.units(UnitType.City).length) * 125_000,
+                    cost: (p: Player) => Math.min(
+                        1_000_000,
+                        Math.pow(2, p.units(UnitType.City).length) * 125_000,
+                    ),
                     territoryBound: true
                 }
             default:
