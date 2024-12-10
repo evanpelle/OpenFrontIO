@@ -2,6 +2,8 @@ import { PriorityQueue } from "@datastructures-js/priority-queue";
 import { Cell, Execution, MutableGame, MutablePlayer, Player, PlayerID, TerrainType, TerraNullius, Tile } from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
 import { manhattanDist } from "../Util";
+import { MessageType } from "../../client/graphics/layers/EventsDisplay";
+import { renderNumber } from "../../client/graphics/Utils";
 
 export class AttackExecution implements Execution {
     private breakAlliance = false
@@ -157,7 +159,7 @@ export class AttackExecution implements Execution {
                 this.target.removeTroops(defenderTroopLoss)
             }
             this._owner.conquer(tileToConquer)
-            this.checkDefenderDead()
+            this.handleDeadDefender()
         }
     }
 
@@ -198,8 +200,13 @@ export class AttackExecution implements Execution {
         }
     }
 
-    private checkDefenderDead() {
+    private handleDeadDefender() {
         if (this.target.isPlayer() && this.target.numTilesOwned() < 100) {
+            const gold = this.target.gold()
+            this.mg.displayMessage(`Conquered ${this.target.displayName()} received ${renderNumber(gold)} gold`, MessageType.SUCCESS, this._owner.id())
+            this.target.removeGold(gold)
+            this._owner.addGold(gold)
+
             for (let i = 0; i < 10; i++) {
                 for (const tile of this.target.tiles()) {
                     if (tile.borders(this._owner)) {
