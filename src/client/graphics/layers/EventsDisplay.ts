@@ -173,15 +173,15 @@ export class EventsDisplay extends LitElement implements Layer {
 
   tick() {
     let remainingEvents = this.events.filter(event => {
-      const shouldKeep = this.game.ticks() - event.createdAt < 50;
+      const shouldKeep = this.game.ticks() - event.createdAt < 80;
       if (!shouldKeep && event.onDelete) {
         event.onDelete();
       }
       return shouldKeep;
     });
 
-    if (remainingEvents.length > 5) {
-      remainingEvents = remainingEvents.slice(-5);
+    if (remainingEvents.length > 10) {
+      remainingEvents = remainingEvents.slice(-10);
     }
 
     if (this.events.length !== remainingEvents.length) {
