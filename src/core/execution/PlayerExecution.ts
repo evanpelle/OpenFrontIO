@@ -66,11 +66,13 @@ export class PlayerExecution implements Execution {
 
         if (ticks - this.lastCalc > this.ticksPerClusterCalc) {
             this.lastCalc = ticks
-            const start = performance.now()
-            this.removeClusters()
-            const end = performance.now()
-            if (end - start > 1000) {
-                console.log(`player ${this.player.name()}, took ${end - start}ms`)
+            if (ticks - this.player.lastTileChange() < this.ticksPerClusterCalc) {
+                const start = performance.now()
+                this.removeClusters()
+                const end = performance.now()
+                if (end - start > 1000) {
+                    console.log(`player ${this.player.name()}, took ${end - start}ms`)
+                }
             }
         }
     }

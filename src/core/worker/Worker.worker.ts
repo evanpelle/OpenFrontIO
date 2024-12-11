@@ -55,7 +55,6 @@ function initializeMap(data: { gameMap: GameMap }) {
 }
 
 function findPath(terrainMap: TerrainMap, miniTerrainMap: TerrainMap, req: SearchRequest) {
-    console.log(`terrain map height: ${terrainMap.height()}`)
     const aStar = new MiniAStar(
         terrainMap,
         miniTerrainMap,

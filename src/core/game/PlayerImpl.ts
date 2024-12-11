@@ -4,7 +4,6 @@ import { assertNever, bfs, closestOceanShoreFromPlayer, dist, distSortUnit, manh
 import { CellString, GameImpl } from "./GameImpl";
 import { UnitImpl } from "./UnitImpl";
 import { TileImpl } from "./TileImpl";
-import { TerraNulliusImpl } from "./TerraNulliusImpl";
 import { MessageType } from "../../client/graphics/layers/EventsDisplay";
 import { renderTroops } from "../../client/graphics/Utils";
 
@@ -19,6 +18,7 @@ class Donation {
 
 export class PlayerImpl implements MutablePlayer {
 
+    public _lastTileChange: number = 0
 
     private _gold: Gold
     private _troops: number
@@ -434,6 +434,9 @@ export class PlayerImpl implements MutablePlayer {
             return false
         }
         return spawns[0].tile()
+    }
+    lastTileChange(): Tick {
+        return this._lastTileChange
     }
 
     hash(): number {

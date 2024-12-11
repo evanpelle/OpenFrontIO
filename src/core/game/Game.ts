@@ -253,6 +253,7 @@ export interface Player {
 
     // If can build returns the spawn tile, false otherwise
     canBuild(type: UnitType, targetTile: Tile): Tile | false
+    lastTileChange(): Tick
 }
 
 export interface MutablePlayer extends Player {

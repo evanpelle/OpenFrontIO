@@ -329,12 +329,14 @@ export class GameImpl implements MutableGame {
         const tileImpl = tile as TileImpl
         let previousOwner = tileImpl._owner
         if (previousOwner.isPlayer()) {
+            previousOwner._lastTileChange = this._ticks
             previousOwner._tiles.delete(tile.cell().toString())
             previousOwner._borderTiles.delete(tile)
             tileImpl._isBorder = false
         }
         tileImpl._owner = owner
         owner._tiles.set(tile.cell().toString(), tile)
+        owner._lastTileChange = this._ticks
         this.updateBorders(tile)
         tileImpl._hasFallout = false
         this.eventBus.emit(new TileEvent(tile))
@@ -350,6 +352,7 @@ export class GameImpl implements MutableGame {
 
         const tileImpl = tile as TileImpl
         let previousOwner = tileImpl._owner as PlayerImpl
+        previousOwner._lastTileChange = this._ticks
         previousOwner._tiles.delete(tile.cell().toString())
         previousOwner._borderTiles.delete(tile)
         tileImpl._isBorder = false

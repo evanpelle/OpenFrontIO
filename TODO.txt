@@ -225,8 +225,9 @@
 * the notification for a successful trade should be shorter, example: " 70k Gold from trade with "X" " DONE 12/9/2024
 * countries don't actually spawn with some randomness, it's always the same exact spawn DONE 12/9/2024
 * you should get a notification and a reward (some money) for eliminating an enemy DONE 12/9/2024
-* alert on attack
-* alert on unit captured or destroyed
+* alert on attack DONE 12/20/2024
+* alert on unit captured or destroyed 12/20/2024
+* allow longer names and allow them to be displayed in the Rank UI not be cut
 * only check islands/clusters when being attacked
 * store in BigQuery
 * make boats work on lakes (& oceania)
@@ -234,12 +235,10 @@
 * add panama canal NA
 * replay stored games
 * record commit hash of game
-* when player dies, don't remove atom bombs
 * remove alliance when player dies
 * put delay on adjust troop ratio to reduce number of messages
 * make clientID & playerID smaller
 * remove dash from game id
-* allow longer names and allow them to be displayed in the Rank UI not be cut (many are cut for now, even for countries)
 * pause button in single player
 * when hovering over another player have the name not appear ontop of the exit cross
 * have a visual thing of who your attacking and how many boats you sent
