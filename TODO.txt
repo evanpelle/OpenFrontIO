@@ -227,8 +227,9 @@
 * you should get a notification and a reward (some money) for eliminating an enemy DONE 12/9/2024
 * alert on attack DONE 12/20/2024
 * alert on unit captured or destroyed 12/20/2024
+* only check islands/clusters when being attacked DONE 12/10/2024
+* only calculate name if tile changes DONE 12/10/2024
 * allow longer names and allow them to be displayed in the Rank UI not be cut
-* only check islands/clusters when being attacked
 * store in BigQuery
 * make boats work on lakes (& oceania)
 * record game winner
@@ -276,3 +277,12 @@ FEB 1st
 * REFACTOR: give terranullius an ID, game.player() returns terranullius
 * REFACTOR: ocean is considered TerraNullius ?
 
+Error: cannot delete [object Object] not active
+Stack: Error: cannot delete [object Object] not active
+    at UnitImpl.delete (webpack://openfront-client/./src/core/game/UnitImpl.ts?:54:19)
+    at ShellExecution.tick (webpack://openfront-client/./src/core/execution/ShellExecution.ts?:36:38)
+    at eval (webpack://openfront-client/./src/core/game/GameImpl.ts?:133:19)
+    at Array.forEach (<anonymous>)
+    at GameImpl.executeNextTick (webpack://openfront-client/./src/core/game/GameImpl.ts?:131:20)
+    at GameRunner.tick (webpack://openfront-client/./src/client/GameRunner.ts?:153:21)
+    at eval (webpack://openfront-client/./src/client/GameRunner.ts?:110:50)

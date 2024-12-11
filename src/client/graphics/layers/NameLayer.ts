@@ -87,15 +87,25 @@ export class NameLayer implements Layer {
                 }
             }
         }
+        const tickRefreshRate = Math.floor(this.refreshRate / 100) // 10 ticks
         for (const render of this.renders) {
+            const shouldRecalc = render.boundingBox == null || this.game.ticks() - render.player.lastTileChange() < tickRefreshRate
             const now = Date.now()
             if (now - render.lastBoundingCalculated > this.refreshRate) {
-                render.boundingBox = calculateBoundingBox(render.player.borderTiles());
                 render.lastBoundingCalculated = now
+                if (shouldRecalc) {
+                    render.boundingBox = calculateBoundingBox(render.player.borderTiles());
+                } else {
+                    console.log('skipping box calculation')
+                }
             }
             if (render.isVisible && now - render.lastRenderCalc > this.refreshRate) {
-                this.calculateRenderInfo(render)
-                render.lastRenderCalc = now + this.rand.nextInt(-50, 50)
+                render.lastRenderCalc = Date.now() + this.rand.nextInt(0, 100)
+                if (shouldRecalc) {
+                    this.calculateRenderInfo(render)
+                } else {
+                    console.log('skipping name render')
+                }
             }
         }
     }
@@ -132,7 +142,6 @@ export class NameLayer implements Layer {
             render.fontSize = 0
             return
         }
-        render.lastRenderCalc = Date.now() + this.rand.nextInt(0, 100)
         const [cell, size] = placeName(this.game, render.player)
         render.location = cell
         render.fontSize = Math.max(1, Math.floor(size))
