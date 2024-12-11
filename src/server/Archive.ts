@@ -8,12 +8,6 @@ const bigquery = new BigQuery();
 
 export async function archive(gameRecord: GameRecord) {
     try {
-        console.log(`writing game ${gameRecord.id} to gcs`)
-        const bucket = storage.bucket("openfront-games");
-        const file = bucket.file(gameRecord.id);
-        await file.save(JSON.stringify(GameRecordSchema.parse(gameRecord)), {
-            contentType: 'application/json'
-        });
         // Save metadata to BigQuery
         const row = {
             id: gameRecord.id,
@@ -34,7 +28,15 @@ export async function archive(gameRecord: GameRecord) {
             .insert([row]);
 
         console.log(`wrote game metadata to BigQuery: ${gameRecord.id}`);
+        if (gameRecord.turns.length > 0) {
+            console.log(`writing game ${gameRecord.id} to gcs`)
+            const bucket = storage.bucket("openfront-games");
+            const file = bucket.file(gameRecord.id);
+            await file.save(JSON.stringify(GameRecordSchema.parse(gameRecord)), {
+                contentType: 'application/json'
+            });
+        }
     } catch (error) {
-        console.log(`error writing to gcs: ${error}`)
+        console.log(`error archiving game record: ${error}`)
     }
 }

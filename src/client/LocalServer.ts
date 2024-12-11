@@ -53,6 +53,8 @@ export class LocalServer {
         console.log('local server ending game')
         clearInterval(this.endTurnIntervalID)
         const record = CreateGameRecord(this.gameID, this.gameConfig, this.turns, this.startedAt, Date.now())
+        // Clear turns because beacon only supports up to 64kb
+        record.turns = []
         // For unload events, sendBeacon is the only reliable method
         const blob = new Blob([JSON.stringify(GameRecordSchema.parse(record))], {
             type: 'application/json'
