@@ -229,11 +229,13 @@
 * alert on unit captured or destroyed 12/20/2024
 * only check islands/clusters when being attacked DONE 12/10/2024
 * only calculate name if tile changes DONE 12/10/2024
-* allow longer names and allow them to be displayed in the Rank UI not be cut
 * store in BigQuery
+* allow longer names and allow them to be displayed in the Rank UI not be cut
 * make boats work on lakes (& oceania)
 * record game winner
 * add panama canal NA
+* repaint canvas after tab away to prevent blank screen
+* on mobile can't click away from build menu
 * replay stored games
 * record commit hash of game
 * remove alliance when player dies

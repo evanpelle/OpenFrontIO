@@ -95,16 +95,12 @@ export class NameLayer implements Layer {
                 render.lastBoundingCalculated = now
                 if (shouldRecalc) {
                     render.boundingBox = calculateBoundingBox(render.player.borderTiles());
-                } else {
-                    console.log('skipping box calculation')
                 }
             }
             if (render.isVisible && now - render.lastRenderCalc > this.refreshRate) {
                 render.lastRenderCalc = Date.now() + this.rand.nextInt(0, 100)
                 if (shouldRecalc) {
                     this.calculateRenderInfo(render)
-                } else {
-                    console.log('skipping name render')
                 }
             }
         }
