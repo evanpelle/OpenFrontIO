@@ -182,7 +182,12 @@ function packTerrain(map: Terrain[][]): Uint8Array {
 }
 
 function processOcean(map: Terrain[][]) {
-    const queue: Coord[] = [{ x: 0, y: 0 }];
+    const queue: Coord[] = [];
+    if (map[0][0].type == TerrainType.Water) {
+        queue.push({ x: 0, y: 0 })
+    } else {
+        queue.push({ x: map.length - 1, y: map[0].length - 1 })
+    }
     const visited = new Set<string>();
 
     while (queue.length > 0) {

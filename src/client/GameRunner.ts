@@ -185,8 +185,7 @@ export class GameRunner {
             this.gs.executeNextTick()
         } catch (error) {
             const errorText = `Error: ${error.message}\nStack: ${error.stack}`;
-            alert("Game crashed! Error info copied to clipboard. Please paste this in your bug report in Discord.");
-            navigator.clipboard.writeText(errorText);
+            alert("Game crashed!\n Please paste the following your bug report in Discord:\n" + errorText);
         }
         this.renderer.tick()
         this.currTurn++

@@ -25,7 +25,7 @@ export class ShellExecution implements Execution {
             return
         }
         if (!this.target.isActive()) {
-            this.shell.delete()
+            this.shell.delete(false)
             this.active = false
             return
         }
@@ -35,7 +35,7 @@ export class ShellExecution implements Execution {
                 case PathFindResultType.Completed:
                     this.active = false
                     this.target.delete()
-                    this.shell.delete()
+                    this.shell.delete(false)
                     return
                 case PathFindResultType.NextTile:
                     this.shell.move(result.tile)
@@ -45,7 +45,7 @@ export class ShellExecution implements Execution {
                 case PathFindResultType.PathNotFound:
                     console.log(`Shell ${this.shell} could not find target`)
                     this.active = false
-                    this.shell.delete()
+                    this.shell.delete(false)
                     return
             }
         }

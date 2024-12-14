@@ -13,8 +13,8 @@ export const devConfig = new class extends DefaultConfig {
         return 95
     }
     numSpawnPhaseTurns(gameType: GameType): number {
-        // return 40
-        return 1000
+        return 40
+        // return 100
     }
     gameCreationRate(): number {
         return 10 * 1000

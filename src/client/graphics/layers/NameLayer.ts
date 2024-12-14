@@ -1,4 +1,4 @@
-import { AllPlayers, Cell, Game, Player, PlayerType } from "../../../core/game/Game"
+import { AllPlayers, Cell, Game, Player, PlayerType, Tick } from "../../../core/game/Game"
 import { PseudoRandom } from "../../../core/PseudoRandom"
 import { calculateBoundingBox } from "../../../core/Util"
 import { Theme } from "../../../core/configuration/Config"
@@ -17,8 +17,8 @@ class RenderInfo {
     public isVisible = true
     constructor(
         public player: Player,
-        public lastRenderCalc: number,
-        public lastBoundingCalculated: number,
+        public lastRenderCalcTick: Tick,
+        public lastBoundingCalculatedTick: Tick,
         public boundingBox: { min: Cell, max: Cell },
         public location: Cell,
         public fontSize: number
@@ -87,21 +87,20 @@ export class NameLayer implements Layer {
                 }
             }
         }
-        const tickRefreshRate = Math.floor(this.refreshRate / 100) // 10 ticks
+        const currTick = this.game.ticks()
+        const recalcRate = this.game.inSpawnPhase() ? 2 : 10
         for (const render of this.renders) {
-            const shouldRecalc = render.boundingBox == null || this.game.ticks() - render.player.lastTileChange() < tickRefreshRate
-            const now = Date.now()
-            if (now - render.lastBoundingCalculated > this.refreshRate) {
-                render.lastBoundingCalculated = now
-                if (shouldRecalc) {
-                    render.boundingBox = calculateBoundingBox(render.player.borderTiles());
-                }
+            const territoryUpdated = render.boundingBox == null || render.player.lastTileChange() > render.lastBoundingCalculatedTick
+            if (!territoryUpdated) {
+                continue
             }
-            if (render.isVisible && now - render.lastRenderCalc > this.refreshRate) {
-                render.lastRenderCalc = Date.now() + this.rand.nextInt(0, 100)
-                if (shouldRecalc) {
-                    this.calculateRenderInfo(render)
-                }
+            if (currTick - render.lastBoundingCalculatedTick > recalcRate) {
+                render.lastBoundingCalculatedTick = currTick
+                render.boundingBox = calculateBoundingBox(render.player.borderTiles());
+            }
+            if (render.isVisible && currTick - render.lastRenderCalcTick > recalcRate) {
+                render.lastRenderCalcTick = currTick
+                this.calculateRenderInfo(render)
             }
         }
     }
@@ -117,6 +116,9 @@ export class NameLayer implements Layer {
     }
 
     isVisible(render: RenderInfo, min: Cell, max: Cell): boolean {
+        if (render.boundingBox == null) {
+            return false
+        }
         const ratio = (max.x - min.x) / Math.max(20, (render.boundingBox.max.x - render.boundingBox.min.x))
         if (render.player.type() == PlayerType.Bot) {
             if (ratio > 35) {

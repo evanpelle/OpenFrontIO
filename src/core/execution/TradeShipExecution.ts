@@ -53,7 +53,7 @@ export class TradeShipExecution implements Execution {
         }
 
         if (!this.wasCaptured && (!this.dstPort.isActive() || !this.tradeShip.owner().isAlliedWith(this.dstPort.owner()))) {
-            this.tradeShip.delete()
+            this.tradeShip.delete(false)
             this.active = false
             return
         }
@@ -61,7 +61,7 @@ export class TradeShipExecution implements Execution {
         if (this.wasCaptured) {
             const ports = this.tradeShip.owner().units(UnitType.Port).sort(distSortUnit(this.tradeShip))
             if (ports.length == 0) {
-                this.tradeShip.delete()
+                this.tradeShip.delete(false)
                 this.active = false
                 return
             }
@@ -76,7 +76,7 @@ export class TradeShipExecution implements Execution {
                         MessageType.SUCCESS,
                         this.tradeShip.owner().id()
                     )
-                    this.tradeShip.delete()
+                    this.tradeShip.delete(false)
                     break
                 case PathFindResultType.Pending:
                     // Fire unit event to rerender.
@@ -99,9 +99,17 @@ export class TradeShipExecution implements Execution {
             const gold = this.mg.config().tradeShipGold(this.srcPort, this.dstPort)
             this.srcPort.owner().addGold(gold)
             this.dstPort.owner().addGold(gold)
-            this.mg.displayMessage(`Received ${renderNumber(gold)} gold from trade with ${this.tradeShip.owner().displayName()}`, MessageType.SUCCESS, this.dstPort.owner().id())
-            this.mg.displayMessage(`Received ${renderNumber(gold)} gold from trade with ${this.tradeShip.owner().displayName()}`, MessageType.SUCCESS, this._owner)
-            this.tradeShip.delete()
+            this.mg.displayMessage(
+                `Received ${renderNumber(gold)} gold from trade with ${this.srcPort.owner().displayName()}`,
+                MessageType.SUCCESS,
+                this.dstPort.owner().id()
+            )
+            this.mg.displayMessage(
+                `Received ${renderNumber(gold)} gold from trade with ${this.dstPort.owner().displayName()}`,
+                MessageType.SUCCESS,
+                this.srcPort.owner().id()
+            )
+            this.tradeShip.delete(false)
             return
         }
         this.tradeShip.move(this.path[this.index])

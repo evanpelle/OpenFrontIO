@@ -232,16 +232,28 @@
 * store in BigQuery DONE 12/10/2024
 * remove dash from game id DONE 12/11/2024
 * bug: transport display event when it lands DONE 12/11/2024
-* bug: name not updating location in spawn phase
-* have crash print stacktrace
+* have crash print stacktrace DONE 12/11/2024
+* bug: name not updating location in spawn phase DONE 12/12/2024
+* add panama canal NA DONE 12/12/2024
+* make boats work on oceania 12/12/2024
+* add capture alert DONE 12/13/2024
+* better emojis 🏳️🤦‍♂️🖕☮️🫡😡😈🤡 DONE 12/13/2024
+* bug: player names not updating sometimes
+* make player editeable configs
+* games disconnects on multplayer after some time
+* couldn't scroll left on build menu to deploy bombs (mobile)
+* UI/test too big on mobile
+* bug: build city 25k bump doesn't match troop/worker ratio
+* bug: mobile: if you don't have enough money can't get rid of build menu
+* give naval units health
+* show players joined username in private lobby
+* have bots build cities & defense posts
 * allow longer names and allow them to be displayed in the Rank UI not be cut
-* make boats work on lakes (& oceania)
+* make boats work on lakes 
 * record game winner
-* record player ip in bigquery
-* add panama canal NA
 * repaint canvas after tab away to prevent blank screen
 * on mobile can't click away from build menu
-* replay stored games
+* replay  storedgames
 * record commit hash of game
 * remove alliance when player dies
 * put delay on adjust troop ratio to reduce number of messages
@@ -283,12 +295,3 @@ FEB 1st
 * REFACTOR: give terranullius an ID, game.player() returns terranullius
 * REFACTOR: ocean is considered TerraNullius ?
 
-Error: cannot delete [object Object] not active
-Stack: Error: cannot delete [object Object] not active
-    at UnitImpl.delete (webpack://openfront-client/./src/core/game/UnitImpl.ts?:54:19)
-    at ShellExecution.tick (webpack://openfront-client/./src/core/execution/ShellExecution.ts?:36:38)
-    at eval (webpack://openfront-client/./src/core/game/GameImpl.ts?:133:19)
-    at Array.forEach (<anonymous>)
-    at GameImpl.executeNextTick (webpack://openfront-client/./src/core/game/GameImpl.ts?:131:20)
-    at GameRunner.tick (webpack://openfront-client/./src/client/GameRunner.ts?:153:21)
-    at eval (webpack://openfront-client/./src/client/GameRunner.ts?:110:50)
