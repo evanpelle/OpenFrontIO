@@ -67,6 +67,14 @@ export class EmojiMessage {
         public readonly createdAt: Tick
     ) { }
 }
+export class ChatMessage {
+    constructor(
+        public readonly sender: Player,
+        public readonly recipient: Player | typeof AllPlayers,
+        public readonly message: string,
+        public readonly createdAt: Tick
+    ) { }
+}
 
 export class Cell {
 
@@ -242,6 +250,8 @@ export interface Player {
     toString(): string
     canSendEmoji(recipient: Player | typeof AllPlayers): boolean
     outgoingEmojis(): EmojiMessage[]
+    canSendChat(recipient: Player | typeof AllPlayers): boolean
+    outgoingChats(): ChatMessage[]
     canDonate(recipient: Player): boolean
     gold(): Gold
     // Population = troops + workers
@@ -272,6 +282,7 @@ export interface MutablePlayer extends Player {
     targets(): MutablePlayer[]
     transitiveTargets(): MutablePlayer[]
     sendEmoji(recipient: Player | typeof AllPlayers, emoji: string): void
+    sendChat(recipient: Player | typeof AllPlayers, message: string): void
     donate(recipient: MutablePlayer, troops: number): void
 
     addGold(toAdd: Gold): void
@@ -363,5 +374,8 @@ export class TargetPlayerEvent implements GameEvent {
 
 export class EmojiMessageEvent implements GameEvent {
     constructor(public readonly message: EmojiMessage) { }
+}
+export class ChatMessageEvent implements GameEvent {
+    constructor(public readonly message: ChatMessage) { }
 }
 

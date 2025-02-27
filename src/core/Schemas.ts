@@ -12,6 +12,7 @@ export type Intent = SpawnIntent
     | BreakAllianceIntent
     | TargetPlayerIntent
     | EmojiIntent
+    | ChatIntent
     | DonateIntent
     | TargetTroopRatioIntent
     | BuildUnitIntent
@@ -24,6 +25,7 @@ export type AllianceRequestReplyIntent = z.infer<typeof AllianceRequestReplyInte
 export type BreakAllianceIntent = z.infer<typeof BreakAllianceIntentSchema>
 export type TargetPlayerIntent = z.infer<typeof TargetPlayerIntentSchema>
 export type EmojiIntent = z.infer<typeof EmojiIntentSchema>
+export type ChatIntent = z.infer<typeof ChatIntentSchema>
 export type DonateIntent = z.infer<typeof DonateIntentSchema>
 export type TargetTroopRatioIntent = z.infer<typeof TargetTroopRatioIntentSchema>
 export type BuildUnitIntent = z.infer<typeof BuildUnitIntentSchema>
@@ -68,11 +70,20 @@ const EmojiSchema = z.string().refine(
         message: "Must contain at least one emoji character"
     }
 );
+const ChatSchema = z.string().refine(
+    (val) => {
+        return val.length > 0;
+        // Can add a regex test here.
+    },
+    {
+        message: "Must contain at least one character"
+    }
+);
 
 
 // Zod schemas
 const BaseIntentSchema = z.object({
-    type: z.enum(['attack', 'spawn', 'boat', 'name', 'targetPlayer', 'emoji', 'troop_ratio', 'build_unit']),
+    type: z.enum(['attack', 'spawn', 'boat', 'name', 'targetPlayer', 'emoji', 'chat', 'troop_ratio', 'build_unit']),
     clientID: z.string(),
 });
 
@@ -141,6 +152,12 @@ export const EmojiIntentSchema = BaseIntentSchema.extend({
     recipient: z.string(),
     emoji: EmojiSchema,
 })
+export const ChatIntentSchema = BaseIntentSchema.extend({
+    type: z.literal('chat'),
+    sender: z.string(),
+    recipient: z.string(),
+    chat: ChatSchema,
+})
 
 export const DonateIntentSchema = BaseIntentSchema.extend({
     type: z.literal('donate'),
@@ -172,6 +189,7 @@ const IntentSchema = z.union([
     BreakAllianceIntentSchema,
     TargetPlayerIntentSchema,
     EmojiIntentSchema,
+    ChatIntentSchema,
     DonateIntentSchema,
     TargetTroopRatioIntentSchema,
     BuildUnitIntentSchema,

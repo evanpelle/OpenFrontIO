@@ -1,4 +1,4 @@
-import { MutablePlayer, Tile, PlayerInfo, PlayerID, PlayerType, Player, TerraNullius, Cell, Execution, AllianceRequest, MutableAllianceRequest, MutableAlliance, Alliance, Tick, TargetPlayerEvent, EmojiMessage, EmojiMessageEvent, AllPlayers, Gold, UnitType, Unit, MutableUnit } from "./Game";
+import { MutablePlayer, Tile, PlayerInfo, PlayerID, PlayerType, Player, TerraNullius, Cell, Execution, AllianceRequest, MutableAllianceRequest, MutableAlliance, Alliance, Tick, TargetPlayerEvent, EmojiMessage, EmojiMessageEvent, ChatMessage, ChatMessageEvent, AllPlayers, Gold, UnitType, Unit, MutableUnit } from "./Game";
 import { ClientID } from "../Schemas";
 import { assertNever, bfs, closestOceanShoreFromPlayer, dist, distSortUnit, manhattanDist, manhattanDistWrapped, processName, simpleHash, sourceDstOceanShore } from "../Util";
 import { CellString, GameImpl } from "./GameImpl";
@@ -40,6 +40,7 @@ export class PlayerImpl implements MutablePlayer {
     private targets_: Target[] = []
 
     private outgoingEmojis_: EmojiMessage[] = []
+    private outgoingChats_: ChatMessage[] = []
 
     private sentDonations: Donation[] = []
 
@@ -242,6 +243,31 @@ export class PlayerImpl implements MutablePlayer {
         const prevMsgs = this.outgoingEmojis_.filter(msg => msg.recipient == recipient)
         for (const msg of prevMsgs) {
             if (this.gs.ticks() - msg.createdAt < this.gs.config().emojiMessageCooldown()) {
+                return false
+            }
+        }
+        return true
+    }
+
+    sendChat(recipient: Player | typeof AllPlayers, message: string): void {
+        if (recipient == this) {
+            throw Error(`Cannot send message to oneself: ${this}`)
+        }
+        const msg = new ChatMessage(this, recipient, message, this.gs.ticks())
+        this.outgoingChats_.push(msg)
+        this.gs.eventBus.emit(new ChatMessageEvent(msg))
+    }
+
+    outgoingChats(): ChatMessage[] {
+        return this.outgoingChats_
+            .filter(e => this.gs.ticks() - e.createdAt < this.gs.config().chatMessageDuration())
+            .sort((a, b) => b.createdAt - a.createdAt)
+    }
+
+    canSendChat(recipient: Player | typeof AllPlayers): boolean {
+        const prevMsgs = this.outgoingChats_.filter(msg => msg.recipient == recipient)
+        for (const msg of prevMsgs) {
+            if (this.gs.ticks() - msg.createdAt < this.gs.config().chatMessageCooldown()) {
                 return false
             }
         }

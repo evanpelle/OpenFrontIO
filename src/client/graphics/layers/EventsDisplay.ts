@@ -8,6 +8,7 @@ import {
   AllPlayers,
   BrokeAllianceEvent,
   EmojiMessageEvent,
+  ChatMessageEvent,
   Game,
   Player,
   PlayerID,
@@ -169,6 +170,7 @@ export class EventsDisplay extends LitElement implements Layer {
     this.eventBus.on(AllianceExpiredEvent, e => this.onAllianceExpiredEvent(e));
     this.eventBus.on(TargetPlayerEvent, e => this.onTargetPlayerEvent(e));
     this.eventBus.on(EmojiMessageEvent, e => this.onEmojiMessageEvent(e));
+    this.eventBus.on(ChatMessageEvent, e => this.onChatMessageEvent(e));
   }
 
   tick() {
@@ -326,6 +328,27 @@ export class EventsDisplay extends LitElement implements Layer {
     } else if (event.message.sender === myPlayer && event.message.recipient !== AllPlayers) {
       this.addEvent({
         description: `Sent ${event.message.recipient.displayName()}: ${event.message.emoji}`,
+        unsafeDescription: true,
+        type: MessageType.INFO,
+        highlight: true,
+        createdAt: this.game.ticks(),
+      });
+    }
+  }
+  onChatMessageEvent(event: ChatMessageEvent) {
+    const myPlayer = this.game.playerByClientID(this.clientID);
+    if (!myPlayer) return;
+
+    if (event.message.recipient === myPlayer) {
+      this.addEvent({
+        description: `${event.message.sender.displayName()}:${event.message.message}`,
+        type: MessageType.INFO,
+        highlight: true,
+        createdAt: this.game.ticks(),
+      });
+    } else if (event.message.sender === myPlayer && event.message.recipient !== AllPlayers) {
+      this.addEvent({
+        description: `Sent ${event.message.recipient.displayName()}: ${event.message.message}`,
         unsafeDescription: true,
         type: MessageType.INFO,
         highlight: true,

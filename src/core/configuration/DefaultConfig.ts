@@ -130,6 +130,12 @@ export class DefaultConfig implements Config {
     emojiMessageCooldown(): Tick {
         return 15 * 10
     }
+    chatMessageDuration(): Tick {
+        return 100 // unnecessary multiplications?
+    }
+    chatMessageCooldown(): Tick {
+        return 90
+    }
     targetDuration(): Tick {
         return 10 * 10
     }

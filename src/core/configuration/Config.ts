@@ -56,6 +56,8 @@ export interface Config {
 	targetCooldown(): Tick
 	emojiMessageCooldown(): Tick
 	emojiMessageDuration(): Tick
+	chatMessageCooldown(): Tick
+	chatMessageDuration(): Tick
 	donateCooldown(): Tick
 	defaultDonationAmount(sender: Player): number
 	unitInfo(type: UnitType): UnitInfo
