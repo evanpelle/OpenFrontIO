@@ -1,204 +1,145 @@
-import { LitElement, html, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
-import { EventBus, GameEvent } from "../../../core/EventBus";
+import { LitElement, html } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { EventBus } from "../../../core/EventBus";
 import {
-  AllianceExpiredEvent,
-  AllianceRequestEvent,
-  AllianceRequestReplyEvent,
   AllPlayers,
-  BrokeAllianceEvent,
-  EmojiMessageEvent,
-  Game,
-  Player,
-  PlayerID,
-  TargetPlayerEvent,
-  UnitEvent
+  MessageType,
+  PlayerType,
+  Tick,
 } from "../../../core/game/Game";
+import {
+  AttackUpdate,
+  DisplayMessageUpdate,
+} from "../../../core/game/GameUpdates";
+import { EmojiUpdate } from "../../../core/game/GameUpdates";
+import { TargetPlayerUpdate } from "../../../core/game/GameUpdates";
+import { AllianceExpiredUpdate } from "../../../core/game/GameUpdates";
+import { BrokeAllianceUpdate } from "../../../core/game/GameUpdates";
+import { AllianceRequestReplyUpdate } from "../../../core/game/GameUpdates";
+import { AllianceRequestUpdate } from "../../../core/game/GameUpdates";
+import { GameUpdateType } from "../../../core/game/GameUpdates";
 import { ClientID } from "../../../core/Schemas";
 import { Layer } from "./Layer";
 import { SendAllianceReplyIntentEvent } from "../../Transport";
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
-import { onlyImages, sanitize } from '../../../core/Util';
-
-export enum MessageType {
-  SUCCESS,
-  INFO,
-  WARN,
-  ERROR,
-}
-
-export class DisplayMessageEvent implements GameEvent {
-  constructor(
-    public readonly message: string,
-    public readonly type: MessageType,
-    public readonly playerID: PlayerID | null = null
-  ) { }
-}
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
+import { onlyImages, sanitize } from "../../../core/Util";
+import { GameView, PlayerView } from "../../../core/game/GameView";
+import { renderTroops } from "../../Utils";
+import { GoToPlayerEvent } from "./Leaderboard";
 
 interface Event {
   description: string;
-  unsafeDescription?: boolean
+  unsafeDescription?: boolean;
   buttons?: {
     text: string;
     className: string;
     action: () => void;
+    preventClose?: boolean;
   }[];
   type: MessageType;
   highlight?: boolean;
   createdAt: number;
   onDelete?: () => void;
+  // lower number: lower on the display
+  priority?: number;
+  duration?: Tick;
 }
 
-@customElement('events-display')
+@customElement("events-display")
 export class EventsDisplay extends LitElement implements Layer {
   public eventBus: EventBus;
-  public game: Game;
+  public game: GameView;
   public clientID: ClientID;
 
   private events: Event[] = [];
+  @state() private incomingAttacks: AttackUpdate[] = [];
+  @state() private outgoingAttacks: AttackUpdate[] = [];
+  @state() private _hidden: boolean = false;
+  @state() private newEvents: number = 0;
 
-  static styles = css`
-    :host {
-      display: block;
-      position: fixed;
-      bottom: 10px;
-      right: 10px;
-      z-index: 1000;
-      max-width: 400px;
+  private toggleHidden() {
+    this._hidden = !this._hidden;
+    if (this._hidden) {
+      this.newEvents = 0;
     }
+    this.requestUpdate();
+  }
 
-    .events-table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: rgba(0, 0, 0, 0.7);
-      color: white;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-      font-size: 1.2em;
-    }
-
-    .events-table th,
-    .events-table td {
-      padding: 15px;
-      text-align: left;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.0);
-      z-index: 1000;
-    }
-
-    .events-table th {
-      background-color: rgba(0, 0, 0, 0.0);
-      font-size: 1.2em;
-      text-transform: uppercase;
-    }
-
-    .events-table tr:hover {
-      background-color: rgba(255, 255, 255, 0.0);
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 8px 16px;
-      margin: 5px 10px 5px 0;
-      background-color: #4CAF50;
-      color: white;
-      text-decoration: none;
-      border-radius: 4px;
-      transition: background-color 0.3s;
-      border: none;
-      cursor: pointer;
-    }
-
-    .btn:hover {
-      background-color: #45a049;
-    }
-
-    .btn-info {
-      background-color: #2196F3;
-    }
-
-    .btn-info:hover {
-      background-color: #0b7dda;
-    }
-
-    .success td { color: rgb(120, 255, 140); }
-    .info td { color: rgb(230, 230, 230); }
-    .warn td { color: rgb(255, 220, 80) }
-    .error td { color: rgb(255, 100, 100); }
-
-    .button-container {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    @media (max-width: 600px) {
-      :host {
-        bottom: auto;
-        top: 10px;
-        right: 10px;
-        left: 10px;
-        max-width: calc(100% - 20px);
-      }
-
-      .events-table th,
-      .events-table td {
-        padding: 10px;
-      }
-      
-      .btn {
-        display: block;
-        margin: 5px 0;
-        width: 100%;
-      }
-
-      .button-container {
-        flex-direction: column;
-      }
-    }
-  `;
+  private updateMap = new Map([
+    [GameUpdateType.DisplayEvent, (u) => this.onDisplayMessageEvent(u)],
+    [GameUpdateType.AllianceRequest, (u) => this.onAllianceRequestEvent(u)],
+    [
+      GameUpdateType.AllianceRequestReply,
+      (u) => this.onAllianceRequestReplyEvent(u),
+    ],
+    [GameUpdateType.BrokeAlliance, (u) => this.onBrokeAllianceEvent(u)],
+    [GameUpdateType.TargetPlayer, (u) => this.onTargetPlayerEvent(u)],
+    [GameUpdateType.Emoji, (u) => this.onEmojiMessageEvent(u)],
+  ]);
 
   constructor() {
     super();
     this.events = [];
+    this.incomingAttacks = [];
+    this.outgoingAttacks = [];
   }
 
-  init() {
-    this.eventBus.on(AllianceRequestEvent, a => this.onAllianceRequestEvent(a));
-    this.eventBus.on(AllianceRequestReplyEvent, a => this.onAllianceRequestReplyEvent(a));
-    this.eventBus.on(DisplayMessageEvent, e => this.onDisplayMessageEvent(e));
-    this.eventBus.on(BrokeAllianceEvent, e => this.onBrokeAllianceEvent(e));
-    this.eventBus.on(AllianceExpiredEvent, e => this.onAllianceExpiredEvent(e));
-    this.eventBus.on(TargetPlayerEvent, e => this.onTargetPlayerEvent(e));
-    this.eventBus.on(EmojiMessageEvent, e => this.onEmojiMessageEvent(e));
-  }
+  init() {}
 
   tick() {
-    let remainingEvents = this.events.filter(event => {
-      const shouldKeep = this.game.ticks() - event.createdAt < 80;
+    const updates = this.game.updatesSinceLastTick();
+    for (const [ut, fn] of this.updateMap) {
+      updates[ut]?.forEach((u) => fn(u));
+    }
+
+    let remainingEvents = this.events.filter((event) => {
+      const shouldKeep =
+        this.game.ticks() - event.createdAt < (event.duration ?? 600);
       if (!shouldKeep && event.onDelete) {
         event.onDelete();
       }
       return shouldKeep;
     });
 
-    if (remainingEvents.length > 10) {
-      remainingEvents = remainingEvents.slice(-10);
+    if (remainingEvents.length > 30) {
+      remainingEvents = remainingEvents.slice(-30);
     }
 
     if (this.events.length !== remainingEvents.length) {
       this.events = remainingEvents;
-      this.requestUpdate()
+      this.requestUpdate();
     }
+
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer) {
+      return;
+    }
+
+    // Update attacks
+    this.incomingAttacks = myPlayer.incomingAttacks().filter((a) => {
+      const t = (this.game.playerBySmallID(a.attackerID) as PlayerView).type();
+      return t != PlayerType.Bot;
+    });
+
+    this.outgoingAttacks = myPlayer
+      .outgoingAttacks()
+      .filter((a) => a.targetID != 0);
+
+    this.requestUpdate();
   }
 
   private addEvent(event: Event) {
     this.events = [...this.events, event];
-    this.requestUpdate()
+    if (this._hidden == true) {
+      this.newEvents++;
+    }
+    this.requestUpdate();
   }
 
   private removeEvent(index: number) {
     this.events = [
       ...this.events.slice(0, index),
-      ...this.events.slice(index + 1)
+      ...this.events.slice(index + 1),
     ];
   }
 
@@ -206,11 +147,14 @@ export class EventsDisplay extends LitElement implements Layer {
     return false;
   }
 
-  renderLayer(): void { }
+  renderLayer(): void {}
 
-  onDisplayMessageEvent(event: DisplayMessageEvent) {
+  onDisplayMessageEvent(event: DisplayMessageUpdate) {
     const myPlayer = this.game.playerByClientID(this.clientID);
-    if (event.playerID != null && (!myPlayer || myPlayer.id() !== event.playerID)) {
+    if (
+      event.playerID != null &&
+      (!myPlayer || myPlayer.smallID() !== event.playerID)
+    ) {
       return;
     }
 
@@ -218,66 +162,99 @@ export class EventsDisplay extends LitElement implements Layer {
       description: event.message,
       createdAt: this.game.ticks(),
       highlight: true,
-      type: event.type,
+      type: event.messageType,
       unsafeDescription: true,
     });
   }
 
-  onAllianceRequestEvent(event: AllianceRequestEvent) {
+  onAllianceRequestEvent(update: AllianceRequestUpdate) {
     const myPlayer = this.game.playerByClientID(this.clientID);
-    if (!myPlayer || event.allianceRequest.recipient() !== myPlayer) {
+    if (!myPlayer || update.recipientID !== myPlayer.smallID()) {
       return;
     }
 
+    const requestor = this.game.playerBySmallID(
+      update.requestorID,
+    ) as PlayerView;
+    const recipient = this.game.playerBySmallID(
+      update.recipientID,
+    ) as PlayerView;
+
     this.addEvent({
-      description: `${event.allianceRequest.requestor().name()} requests an alliance!`,
+      description: `${requestor.name()} requests an alliance!`,
       buttons: [
+        {
+          text: "Focus",
+          className: "btn-gray",
+          action: () => this.eventBus.emit(new GoToPlayerEvent(requestor)),
+          preventClose: true,
+        },
         {
           text: "Accept",
           className: "btn",
-          action: () => this.eventBus.emit(new SendAllianceReplyIntentEvent(event.allianceRequest, true)),
+          action: () =>
+            this.eventBus.emit(
+              new SendAllianceReplyIntentEvent(requestor, recipient, true),
+            ),
         },
         {
           text: "Reject",
-          className: "btn btn-info",
-          action: () => this.eventBus.emit(new SendAllianceReplyIntentEvent(event.allianceRequest, false)),
-        }
+          className: "btn-info",
+          action: () =>
+            this.eventBus.emit(
+              new SendAllianceReplyIntentEvent(requestor, recipient, false),
+            ),
+        },
       ],
       highlight: true,
       type: MessageType.INFO,
       createdAt: this.game.ticks(),
-      onDelete: () => this.eventBus.emit(new SendAllianceReplyIntentEvent(event.allianceRequest, false))
+      onDelete: () =>
+        this.eventBus.emit(
+          new SendAllianceReplyIntentEvent(requestor, recipient, false),
+        ),
+      priority: 0,
+      duration: 150,
     });
   }
 
-  onAllianceRequestReplyEvent(event: AllianceRequestReplyEvent) {
+  onAllianceRequestReplyEvent(update: AllianceRequestReplyUpdate) {
     const myPlayer = this.game.playerByClientID(this.clientID);
-    if (!myPlayer || event.allianceRequest.requestor() !== myPlayer) {
+    if (!myPlayer || update.request.requestorID !== myPlayer.smallID()) {
       return;
     }
 
+    const recipient = this.game.playerBySmallID(
+      update.request.recipientID,
+    ) as PlayerView;
+
     this.addEvent({
-      description: `${event.allianceRequest.recipient().name()} ${event.accepted ? "accepted" : "rejected"} your alliance request`,
-      type: event.accepted ? MessageType.SUCCESS : MessageType.ERROR,
+      description: `${recipient.name()} ${
+        update.accepted ? "accepted" : "rejected"
+      } your alliance request`,
+      type: update.accepted ? MessageType.SUCCESS : MessageType.ERROR,
       highlight: true,
       createdAt: this.game.ticks(),
     });
   }
 
-  onBrokeAllianceEvent(event: BrokeAllianceEvent) {
+  onBrokeAllianceEvent(update: BrokeAllianceUpdate) {
     const myPlayer = this.game.playerByClientID(this.clientID);
     if (!myPlayer) return;
 
-    if (!event.betrayed.isTraitor() && event.traitor === myPlayer) {
+    const betrayed = this.game.playerBySmallID(update.betrayedID) as PlayerView;
+    const traitor = this.game.playerBySmallID(update.traitorID) as PlayerView;
+
+    if (!betrayed.isTraitor() && traitor === myPlayer) {
       this.addEvent({
-        description: `You broke your alliance with ${event.betrayed.name()}, making you a TRAITOR`,
+        description: `You broke your alliance with ${betrayed.name()}, making you a TRAITOR`,
         type: MessageType.ERROR,
         highlight: true,
         createdAt: this.game.ticks(),
       });
-    } else if (event.betrayed === myPlayer) {
+    } else if (betrayed === myPlayer) {
       this.addEvent({
-        description: `${event.traitor.name()}, broke their alliance with you`,
+        description: `${traitor.name()}, broke their alliance with you`,
         type: MessageType.ERROR,
         highlight: true,
         createdAt: this.game.ticks(),
@@ -285,11 +262,17 @@ export class EventsDisplay extends LitElement implements Layer {
     }
   }
 
-  onAllianceExpiredEvent(event: AllianceExpiredEvent) {
+  onAllianceExpiredEvent(update: AllianceExpiredUpdate) {
     const myPlayer = this.game.playerByClientID(this.clientID);
     if (!myPlayer) return;
 
-    const other = event.player1 === myPlayer ? event.player2 : event.player2 === myPlayer ? event.player1 : null;
+    const otherID =
+      update.player1ID === myPlayer.smallID()
+        ? update.player2ID
+        : update.player2ID === myPlayer.smallID()
+          ? update.player1ID
+          : null;
+    const other = this.game.playerBySmallID(otherID) as PlayerView;
     if (!other || !myPlayer.isAlive() || !other.isAlive()) return;
 
     this.addEvent({
@@ -300,32 +283,46 @@ export class EventsDisplay extends LitElement implements Layer {
     });
   }
 
-  onTargetPlayerEvent(event: TargetPlayerEvent) {
-    const myPlayer = this.game.playerByClientID(this.clientID);
-    if (!myPlayer || !myPlayer.isAlliedWith(event.player)) return;
+  onTargetPlayerEvent(event: TargetPlayerUpdate) {
+    const other = this.game.playerBySmallID(event.playerID) as PlayerView;
+    const myPlayer = this.game.playerByClientID(this.clientID) as PlayerView;
+    if (!myPlayer || !myPlayer.isAlliedWith(other)) return;
+
+    const target = this.game.playerBySmallID(event.targetID) as PlayerView;
 
     this.addEvent({
-      description: `${event.player.name()} requests you attack ${event.target.name()}`,
+      description: `${other.name()} requests you attack ${target.name()}`,
       type: MessageType.INFO,
       highlight: true,
       createdAt: this.game.ticks(),
     });
   }
 
-  onEmojiMessageEvent(event: EmojiMessageEvent) {
+  onEmojiMessageEvent(update: EmojiUpdate) {
     const myPlayer = this.game.playerByClientID(this.clientID);
     if (!myPlayer) return;
 
-    if (event.message.recipient === myPlayer) {
+    const recipient =
+      update.emoji.recipientID == AllPlayers
+        ? AllPlayers
+        : this.game.playerBySmallID(update.emoji.recipientID);
+    const sender = this.game.playerBySmallID(
+      update.emoji.senderID,
+    ) as PlayerView;
+
+    if (recipient == myPlayer) {
       this.addEvent({
-        description: `${event.message.sender.displayName()}:${event.message.emoji}`,
+        description: `${sender.displayName()}:${update.emoji.message}`,
+        unsafeDescription: true,
         type: MessageType.INFO,
         highlight: true,
         createdAt: this.game.ticks(),
       });
-    } else if (event.message.sender === myPlayer && event.message.recipient !== AllPlayers) {
+    } else if (sender === myPlayer && recipient !== AllPlayers) {
       this.addEvent({
-        description: `Sent ${event.message.recipient.displayName()}: ${event.message.emoji}`,
+        description: `Sent ${(recipient as PlayerView).displayName()}: ${
+          update.emoji.message
+        }`,
         unsafeDescription: true,
         type: MessageType.INFO,
         highlight: true,
@@ -334,39 +331,179 @@ export class EventsDisplay extends LitElement implements Layer {
     }
   }
 
-  render() {
-    if (this.events.length === 0) {
+  private getMessageTypeClasses(type: MessageType): string {
+    switch (type) {
+      case MessageType.SUCCESS:
+        return "text-green-300";
+      case MessageType.INFO:
+        return "text-gray-200";
+      case MessageType.WARN:
+        return "text-yellow-300";
+      case MessageType.ERROR:
+        return "text-red-300";
+      default:
+        return "text-white";
+    }
+  }
+
+  private renderAttacks() {
+    if (
+      this.incomingAttacks.length === 0 &&
+      this.outgoingAttacks.length === 0
+    ) {
       return html``;
     }
 
     return html`
-      <table class="events-table">
-        <tbody>
-          ${this.events.map((event, index) => html`
-            <tr class="${event.highlight ? 'highlight' : ''} ${MessageType[event.type].toLowerCase()}">
-              <td>
-                ${event.unsafeDescription ? unsafeHTML(onlyImages(event.description)) : event.description}
-                ${event.buttons ? html`
-                  <div class="button-container">
-                    ${event.buttons.map(btn => html`
-                      <button 
-                        class="${btn.className}"
-                        @click=${() => {
-        btn.action();
-        this.removeEvent(index);
-        this.requestUpdate()
-      }}
-                      >
-                        ${btn.text}
-                      </button>
-                    `)}
-                  </div>
-                ` : ''}
+      ${this.incomingAttacks.length > 0
+        ? html`
+            <tr class="border-t border-gray-700">
+              <td class="lg:p-3 p-1 text-left text-red-400">
+                ${this.incomingAttacks.map(
+                  (attack) => html`
+                    <div class="ml-2">
+                      ${renderTroops(attack.troops)}
+                      ${(
+                        this.game.playerBySmallID(
+                          attack.attackerID,
+                        ) as PlayerView
+                      )?.name()}
+                    </div>
+                  `,
+                )}
               </td>
             </tr>
-          `)}
-        </tbody>
-      </table>
+          `
+        : ""}
+      ${this.outgoingAttacks.length > 0
+        ? html`
+            <tr class="border-t border-gray-700">
+              <td class="lg:p-3 p-1 text-left text-blue-400">
+                ${this.outgoingAttacks.map(
+                  (attack) => html`
+                    <div class="ml-2">
+                      ${renderTroops(attack.troops)}
+                      ${(
+                        this.game.playerBySmallID(attack.targetID) as PlayerView
+                      )?.name()}
+                    </div>
+                  `,
+                )}
+              </td>
+            </tr>
+          `
+        : ""}
     `;
+  }
+
+  render() {
+    if (
+      this.events.length === 0 &&
+      this.incomingAttacks.length === 0 &&
+      this.outgoingAttacks.length === 0
+    ) {
+      return html``;
+    }
+    this.events.sort((a, b) => {
+      const aPrior = a.priority ?? 100000;
+      const bPrior = b.priority ?? 100000;
+      if (aPrior == bPrior) {
+        return a.createdAt - b.createdAt;
+      }
+      return bPrior - aPrior;
+    });
+
+    return html`
+      <div
+        class="${this._hidden
+          ? "w-fit px-[10px] py-[5px]"
+          : ""} rounded-md bg-black bg-opacity-60 relative max-h-[30vh] flex flex-col-reverse overflow-y-auto w-full lg:bottom-2.5 lg:right-2.5 z-50 lg:max-w-[30vw] lg:w-full lg:w-auto"
+      >
+        <div>
+          <div class="w-full bg-black/80 sticky top-0 px-[10px]">
+            <button
+              class="text-white cursor-pointer pointer-events-auto ${this
+                ._hidden
+                ? "hidden"
+                : ""}"
+              @click=${this.toggleHidden}
+            >
+              Hide
+            </button>
+          </div>
+          <button
+            class="text-white cursor-pointer pointer-events-auto ${this._hidden
+              ? ""
+              : "hidden"}"
+            @click=${this.toggleHidden}
+          >
+            Events
+            <span
+              class="${this.newEvents
+                ? ""
+                : "hidden"} inline-block px-2 bg-red-500 rounded-sm"
+              >${this.newEvents}</span
+            >
+          </button>
+          <table
+            class="w-full border-collapse text-white shadow-lg lg:text-xl text-xs ${this
+              ._hidden
+              ? "hidden"
+              : ""}"
+            style="pointer-events: auto;"
+          >
+            <tbody>
+              ${this.events.map(
+                (event, index) => html`
+                  <tr
+                    class="border-b border-opacity-0 ${this.getMessageTypeClasses(
+                      event.type,
+                    )}"
+                  >
+                    <td class="lg:p-3 p-1 text-left">
+                      ${event.unsafeDescription
+                        ? unsafeHTML(onlyImages(event.description))
+                        : event.description}
+                      ${event.buttons
+                        ? html`
+                            <div class="flex flex-wrap gap-1.5 mt-1">
+                              ${event.buttons.map(
+                                (btn) => html`
+                                  <button
+                                    class="inline-block px-3 py-1 text-white rounded text-sm cursor-pointer transition-colors duration-300
+                            ${btn.className.includes("btn-info")
+                                      ? "bg-blue-500 hover:bg-blue-600"
+                                      : btn.className.includes("btn-gray")
+                                        ? "bg-gray-500 hover:bg-gray-600"
+                                        : "bg-green-600 hover:bg-green-700"}"
+                                    @click=${() => {
+                                      btn.action();
+                                      if (!btn.preventClose) {
+                                        this.removeEvent(index);
+                                      }
+                                      this.requestUpdate();
+                                    }}
+                                  >
+                                    ${btn.text}
+                                  </button>
+                                `,
+                              )}
+                            </div>
+                          `
+                        : ""}
+                    </td>
+                  </tr>
+                `,
+              )}
+              ${this.renderAttacks()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  createRenderRoot() {
+    return this;
   }
 }

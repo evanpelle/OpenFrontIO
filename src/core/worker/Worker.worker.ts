@@ -1,113 +1,116 @@
-// pathfinding.ts
-import { Cell, GameMap, TerrainMap, TerrainTile, TerrainType } from "../game/Game";
-import { createMiniMap, loadTerrainMap } from "../game/TerrainMapLoader";
-import { PriorityQueue } from "@datastructures-js/priority-queue";
-import { SerialAStar } from "../pathfinding/SerialAStar";
-import { AStar, PathFindResultType, SearchNode } from "../pathfinding/AStar";
-import { MiniAStar } from "../pathfinding/MiniAStar";
+import { createGameRunner, GameRunner } from "../GameRunner";
+import { GameUpdateViewData } from "../game/GameUpdates";
+import {
+  MainThreadMessage,
+  WorkerMessage,
+  InitializedMessage,
+  PlayerActionsResultMessage,
+  PlayerProfileResultMessage,
+} from "./WorkerMessages";
 
-let terrainMapPromise: Promise<{
-    terrainMap: TerrainMap,
-    miniMap: TerrainMap
-}> | null = null;
-let searches = new PriorityQueue<Search>((a: Search, b: Search) => (a.deadline - b.deadline))
-let processingInterval: number | null = null;
-let isProcessingSearch = false
+const ctx: Worker = self as any;
+let gameRunner: Promise<GameRunner> | null = null;
 
-interface Search {
-    aStar: AStar,
-    deadline: number
-    requestId: string,
-    end: Cell
+function gameUpdate(gu: GameUpdateViewData) {
+  sendMessage({
+    type: "game_update",
+    gameUpdate: gu,
+  });
 }
 
-interface SearchRequest {
-    requestId: string
-    currentTick: number
-    // duration in ticks
-    duration: number
-    start: Cell
-    end: Cell
+function sendMessage(message: WorkerMessage) {
+  ctx.postMessage(message);
 }
 
-self.onmessage = (e) => {
-    switch (e.data.type) {
-        case 'init':
-            initializeMap(e.data);
-            break;
-        case 'findPath':
-            terrainMapPromise.then(tm => findPath(tm.terrainMap, tm.miniMap, e.data))
-            break;
-    }
-};
+ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
+  const message = e.data;
 
-function initializeMap(data: { gameMap: GameMap }) {
-    terrainMapPromise = loadTerrainMap(data.gameMap)
-        .then(async terrainMap => {
-            const miniMap = await createMiniMap(terrainMap);
-            return {
-                terrainMap: terrainMap,
-                miniMap: miniMap
-            };
+  switch (message.type) {
+    case "heartbeat":
+      (await gameRunner).executeNextTick();
+      break;
+    case "init":
+      try {
+        gameRunner = createGameRunner(
+          message.gameID,
+          message.gameConfig,
+          message.clientID,
+          gameUpdate,
+        ).then((gr) => {
+          sendMessage({
+            type: "initialized",
+            id: message.id,
+          } as InitializedMessage);
+          return gr;
         });
-    self.postMessage({ type: 'initialized' });
-    processingInterval = setInterval(computeSearches, .1) as unknown as number;
-}
+      } catch (error) {
+        console.error("Failed to initialize game runner:", error);
+        throw error;
+      }
+      break;
 
-function findPath(terrainMap: TerrainMap, miniTerrainMap: TerrainMap, req: SearchRequest) {
-    const aStar = new MiniAStar(
-        terrainMap,
-        miniTerrainMap,
-        terrainMap.terrain(req.start),
-        terrainMap.terrain(req.end),
-        (sn: SearchNode) => (sn as TerrainTile).terrainType() == TerrainType.Ocean,
-        10_000,
-        req.duration,
-    );
+    case "turn":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
 
-    searches.enqueue({
-        aStar: aStar,
-        deadline: req.currentTick + req.duration,
-        requestId: req.requestId,
-        end: req.end
-    })
-}
+      try {
+        const gr = await gameRunner;
+        await gr.addTurn(message.turn);
+      } catch (error) {
+        console.error("Failed to process turn:", error);
+        throw error;
+      }
+      break;
 
-function computeSearches() {
-    if (isProcessingSearch || searches.isEmpty()) {
-        return
-    }
+    case "player_actions":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
 
-    isProcessingSearch = true
+      try {
+        const actions = (await gameRunner).playerActions(
+          message.playerID,
+          message.x,
+          message.y,
+        );
+        sendMessage({
+          type: "player_actions_result",
+          id: message.id,
+          result: actions,
+        } as PlayerActionsResultMessage);
+      } catch (error) {
+        console.error("Failed to check borders:", error);
+        throw error;
+      }
+      break;
+    case "player_profile":
+      if (!gameRunner) {
+        throw new Error("Game runner not initialized");
+      }
 
-    try {
-        for (let i = 0; i < 10; i++) {
-            if (searches.isEmpty()) {
-                return
-            }
-            const search = searches.dequeue()
-            switch (search.aStar.compute()) {
-                case PathFindResultType.Completed:
-                    self.postMessage({
-                        type: 'pathFound',
-                        requestId: search.requestId,
-                        path: search.aStar.reconstructPath()
-                    });
-                    break;
+      try {
+        const profile = (await gameRunner).playerProfile(message.playerID);
+        sendMessage({
+          type: "player_profile_result",
+          id: message.id,
+          result: profile,
+        } as PlayerProfileResultMessage);
+      } catch (error) {
+        console.error("Failed to check borders:", error);
+        throw error;
+      }
+      break;
+    default:
+      console.warn("Unknown message :", message);
+  }
+});
 
-                case PathFindResultType.Pending:
-                    searches.push(search)
-                    break
-                case PathFindResultType.PathNotFound:
-                    console.warn(`worker: path not found to port`);
-                    self.postMessage({
-                        type: 'pathNotFound',
-                        requestId: search.requestId,
-                    });
-                    break
-            }
-        }
-    } finally {
-        isProcessingSearch = false
-    }
-}
+// Error handling
+ctx.addEventListener("error", (error) => {
+  console.error("Worker error:", error);
+});
+
+ctx.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled promise rejection in worker:", event);
+});

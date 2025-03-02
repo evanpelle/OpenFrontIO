@@ -1,126 +1,155 @@
-import { AllPlayers, Cell, Execution, MutableGame, MutablePlayer, MutableUnit, Player, PlayerID, TerrainType, Tile, Unit, UnitType } from "../game/Game";
+import {
+  AllPlayers,
+  Cell,
+  Execution,
+  Game,
+  Player,
+  Unit,
+  PlayerID,
+  TerrainType,
+  UnitType,
+} from "../game/Game";
 import { PathFinder } from "../pathfinding/PathFinding";
 import { PathFindResultType } from "../pathfinding/AStar";
-import { SerialAStar } from "../pathfinding/SerialAStar";
 import { PseudoRandom } from "../PseudoRandom";
-import { bfs, dist, manhattanDist } from "../Util";
 import { TradeShipExecution } from "./TradeShipExecution";
-import { ParallelAStar, WorkerClient } from "../worker/WorkerClient";
+import { consolex } from "../Consolex";
+import { MiniAStar } from "../pathfinding/MiniAStar";
+import { manhattanDistFN, TileRef } from "../game/GameMap";
 
 export class PortExecution implements Execution {
+  private active = true;
+  private mg: Game;
+  private port: Unit;
+  private random: PseudoRandom;
+  private portPaths = new Map<Unit, TileRef[]>();
+  private computingPaths = new Map<Unit, MiniAStar>();
 
-    private active = true
-    private mg: MutableGame
-    private port: MutableUnit
-    private random: PseudoRandom
-    private portPaths = new Map<MutableUnit, Tile[]>()
-    private computingPaths = new Map<MutableUnit, ParallelAStar>()
+  constructor(
+    private _owner: PlayerID,
+    private tile: TileRef,
+  ) {}
 
-    constructor(
-        private _owner: PlayerID,
-        private cell: Cell,
-        private worker: WorkerClient
-    ) { }
+  init(mg: Game, ticks: number): void {
+    if (!mg.hasPlayer(this._owner)) {
+      console.warn(`PortExecution: player ${this._owner} not found`);
+      this.active = false;
+      return;
+    }
+    this.mg = mg;
+    this.random = new PseudoRandom(mg.ticks());
+  }
 
+  tick(ticks: number): void {
+    if (this.port == null) {
+      // TODO: use canBuild
+      const tile = this.tile;
+      const player = this.mg.player(this._owner);
+      if (!player.canBuild(UnitType.Port, tile)) {
+        consolex.warn(`player ${player} cannot build port at ${this.tile}`);
+        this.active = false;
+        return;
+      }
+      const spawns = Array.from(this.mg.bfs(tile, manhattanDistFN(tile, 20)))
+        .filter((t) => this.mg.isOceanShore(t) && this.mg.owner(t) == player)
+        .sort(
+          (a, b) =>
+            this.mg.manhattanDist(a, tile) - this.mg.manhattanDist(b, tile),
+        );
 
-    init(mg: MutableGame, ticks: number): void {
-        this.mg = mg
-        this.random = new PseudoRandom(mg.ticks())
+      if (spawns.length == 0) {
+        consolex.warn(`cannot find spawn for port`);
+        this.active = false;
+        return;
+      }
+      this.port = player.buildUnit(UnitType.Port, 0, spawns[0]);
+    }
+    if (!this.port.isActive()) {
+      this.active = false;
+      return;
     }
 
-    tick(ticks: number): void {
+    const alliedPorts = this.player()
+      .alliances()
+      .map((a) => a.other(this.player()))
+      .flatMap((p) => p.units(UnitType.Port));
+    const alliedPortsSet = new Set(alliedPorts);
 
-        if (this.port == null) {
-            // TODO: use canBuild
-            const tile = this.mg.tile(this.cell)
-            const player = this.mg.player(this._owner)
-            if (!player.canBuild(UnitType.Port, tile)) {
-                console.warn(`player ${player} cannot build port at ${this.cell}`)
-                this.active = false
-                return
-            }
-            const spawns = Array.from(bfs(tile, dist(tile, 20)))
-                .filter(t => t.isOceanShore() && t.owner() == player)
-                .sort((a, b) => manhattanDist(a.cell(), tile.cell()) - manhattanDist(b.cell(), tile.cell()))
+    const allyConnections = new Set(
+      Array.from(this.portPaths.keys()).map((p) => p.owner()),
+    );
+    allyConnections;
 
-            if (spawns.length == 0) {
-                console.warn(`cannot find spawn for port`)
-                this.active = false
-                return
-            }
-            this.port = player.buildUnit(UnitType.Port, 0, spawns[0])
+    for (const port of alliedPorts) {
+      if (allyConnections.has(port.owner())) {
+        continue;
+      }
+      allyConnections.add(port.owner());
+      if (this.computingPaths.has(port)) {
+        const aStar = this.computingPaths.get(port);
+        switch (aStar.compute()) {
+          case PathFindResultType.Completed:
+            this.portPaths.set(port, aStar.reconstructPath());
+            this.computingPaths.delete(port);
+            break;
+          case PathFindResultType.Pending:
+            break;
+          case PathFindResultType.PathNotFound:
+            consolex.warn(`path not found to port`);
+            break;
         }
-        if (!this.port.isActive()) {
-            this.active = false
-            return
-        }
+        continue;
+      }
 
-
-        const alliedPorts = this.player().alliances().map(a => a.other(this.player())).flatMap(p => p.units(UnitType.Port))
-        const alliedPortsSet = new Set(alliedPorts)
-
-        const allyConnections = new Set(Array.from(this.portPaths.keys()).map(p => p.owner()))
-        allyConnections
-
-
-        for (const port of alliedPorts) {
-            if (allyConnections.has(port.owner())) {
-                continue
-            }
-            allyConnections.add(port.owner())
-            if (this.computingPaths.has(port)) {
-                const aStar = this.computingPaths.get(port)
-                switch (aStar.compute()) {
-                    case PathFindResultType.Completed:
-                        this.portPaths.set(port, aStar.reconstructPath().map(cell => this.mg.tile(cell)))
-                        this.computingPaths.delete(port)
-                        break
-                    case PathFindResultType.Pending:
-                        break
-                    case PathFindResultType.PathNotFound:
-                        console.warn(`path not found to port`)
-                        break
-                }
-                continue
-            }
-            const asyncPF = this.worker.createParallelAStar(this.port.tile(), port.tile(), 25, [TerrainType.Ocean])
-            // console.log(`adding new port path from ${this.player().name()}:${this.port.tile().cell()} to ${port.owner().name()}:${port.tile().cell()}`)
-            this.computingPaths.set(port, asyncPF)
-        }
-
-        for (const port of this.portPaths.keys()) {
-            if (!port.isActive() || !alliedPortsSet.has(port)) {
-                this.portPaths.delete(port)
-                this.computingPaths.delete(port)
-            }
-        }
-
-        const portConnections = Array.from(this.portPaths.keys())
-
-        if (portConnections.length > 0 && this.random.chance(this.mg.config().tradeShipSpawnRate())) {
-            const port = this.random.randElement(portConnections)
-            const path = this.portPaths.get(port)
-            if (path != null) {
-                const pf = PathFinder.Parallel(this.mg, this.worker, 10)
-                this.mg.addExecution(new TradeShipExecution(this.player().id(), this.port, port, pf, path))
-            }
-        }
+      const pf = new MiniAStar(
+        this.mg.map(),
+        this.mg.miniMap(),
+        this.port.tile(),
+        port.tile(),
+        (tr: TileRef) => this.mg.miniMap().isOcean(tr),
+        10_000,
+        25,
+      );
+      this.computingPaths.set(port, pf);
     }
 
-    owner(): MutablePlayer {
-        return null
+    for (const port of this.portPaths.keys()) {
+      if (!port.isActive() || !alliedPortsSet.has(port)) {
+        this.portPaths.delete(port);
+        this.computingPaths.delete(port);
+      }
     }
 
-    isActive(): boolean {
-        return this.active
-    }
+    const portConnections = Array.from(this.portPaths.keys());
 
-    activeDuringSpawnPhase(): boolean {
-        return false
+    if (
+      portConnections.length > 0 &&
+      this.random.chance(this.mg.config().tradeShipSpawnRate())
+    ) {
+      const port = this.random.randElement(portConnections);
+      const path = this.portPaths.get(port);
+      if (path != null) {
+        const pf = PathFinder.Mini(this.mg, 10000, false);
+        this.mg.addExecution(
+          new TradeShipExecution(this.player().id(), this.port, port, pf, path),
+        );
+      }
     }
+  }
 
-    player(): MutablePlayer {
-        return this.port.owner()
-    }
+  owner(): Player {
+    return null;
+  }
 
+  isActive(): boolean {
+    return this.active;
+  }
+
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
+
+  player(): Player {
+    return this.port.owner();
+  }
 }

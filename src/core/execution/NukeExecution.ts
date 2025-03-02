@@ -1,129 +1,204 @@
-import { nextTick } from "process";
-import { Cell, Execution, MutableGame, MutablePlayer, PlayerID, Tile, MutableUnit, UnitType } from "../game/Game";
-import { PathFinder } from "../pathfinding/PathFinding";
-import { PathFindResultType } from "../pathfinding/AStar";
+import {
+  Cell,
+  Execution,
+  Game,
+  Player,
+  PlayerID,
+  Unit,
+  UnitType,
+  TerraNullius,
+  MessageType,
+} from "../game/Game";
 import { PseudoRandom } from "../PseudoRandom";
-import { bfs, dist, distSortUnit, euclideanDist, manhattanDist } from "../Util";
+import { consolex } from "../Consolex";
+import { TileRef } from "../game/GameMap";
 
 export class NukeExecution implements Execution {
+  private player: Player;
+  private active = true;
+  private mg: Game;
+  private nuke: Unit;
 
-    private player: MutablePlayer
+  private random: PseudoRandom;
 
-    private active = true
+  constructor(
+    private type:
+      | UnitType.AtomBomb
+      | UnitType.HydrogenBomb
+      | UnitType.MIRVWarhead,
+    private senderID: PlayerID,
+    private dst: TileRef,
+    private src?: TileRef,
+    private speed: number = 4,
+    private waitTicks = 0,
+  ) {}
 
-    private mg: MutableGame
-
-    private nuke: MutableUnit
-    private dst: Tile
-
-    private pathFinder: PathFinder
-    constructor(
-        private type: UnitType.AtomBomb | UnitType.HydrogenBomb,
-        private senderID: PlayerID,
-        private cell: Cell,
-    ) { }
-
-
-    init(mg: MutableGame, ticks: number): void {
-        this.mg = mg
-        this.pathFinder = PathFinder.Mini(mg, 10_000, () => true)
-        this.player = mg.player(this.senderID)
-        this.dst = this.mg.tile(this.cell)
+  init(mg: Game, ticks: number): void {
+    if (!mg.hasPlayer(this.senderID)) {
+      console.warn(`NukeExecution: sender ${this.senderID} not found`);
+      this.active = false;
+      return;
     }
 
-    tick(ticks: number): void {
-        if (this.nuke == null) {
-            const spawn = this.player.canBuild(this.type, this.dst)
-            if (spawn == false) {
-                console.warn(`cannot build Nuke`)
-                this.active = false
-                return
-            }
-            this.nuke = this.player.buildUnit(this.type, 0, spawn)
+    this.mg = mg;
+    this.player = mg.player(this.senderID);
+    this.random = new PseudoRandom(ticks);
+  }
+
+  public target(): Player | TerraNullius {
+    return this.mg.owner(this.dst);
+  }
+
+  tick(ticks: number): void {
+    if (this.nuke == null) {
+      const spawn = this.src ?? this.player.canBuild(this.type, this.dst);
+      if (spawn == false) {
+        consolex.warn(`cannot build Nuke`);
+        this.active = false;
+        return;
+      }
+      this.nuke = this.player.buildUnit(this.type, 0, spawn);
+      if (this.mg.hasOwner(this.dst)) {
+        const target = this.mg.owner(this.dst) as Player;
+        if (this.type == UnitType.AtomBomb) {
+          this.mg.displayMessage(
+            `${this.player.name()} - atom bomb inbound`,
+            MessageType.ERROR,
+            target.id(),
+          );
         }
-
-        for (let i = 0; i < 4; i++) {
-            const result = this.pathFinder.nextTile(this.nuke.tile(), this.dst)
-            switch (result.type) {
-                case PathFindResultType.Completed:
-                    this.nuke.move(result.tile)
-                    this.detonate()
-                    return
-                case PathFindResultType.NextTile:
-                    this.nuke.move(result.tile)
-                    break
-                case PathFindResultType.Pending:
-                    break
-                case PathFindResultType.PathNotFound:
-                    console.warn(`nuke cannot find path from ${this.nuke.tile()} to ${this.dst}`)
-                    this.active = false
-                    return
-            }
+        if (this.type == UnitType.HydrogenBomb) {
+          this.mg.displayMessage(
+            `${this.player.name()} - hydrogen bomb inbound`,
+            MessageType.ERROR,
+            target.id(),
+          );
         }
+      }
+    }
+    if (this.waitTicks > 0) {
+      this.waitTicks--;
+      return;
     }
 
-    private detonate() {
-        const magnitude = this.type == UnitType.AtomBomb ? { inner: 20, outer: 40 } : { inner: 160, outer: 180 }
-        const rand = new PseudoRandom(this.mg.ticks())
-        const tile = this.mg.tile(this.cell)
-        const toDestroy = bfs(tile, (n: Tile) => {
-            const d = euclideanDist(tile.cell(), n.cell())
-            return (d <= magnitude.inner || rand.chance(2)) && d <= magnitude.outer
-        })
+    const r = (this.mg.y(this.dst) * this.mg.x(this.dst)) % 10;
+    const s = this.speed + (this.mg.ticks() % r);
 
-        const ratio = Object.fromEntries(
-            this.mg.players().map(p => [p.id(), (p.troops() + p.workers()) / p.numTilesOwned()])
-        )
-        const attacked = new Map<MutablePlayer, number>()
-        for (const tile of toDestroy) {
-            const owner = tile.owner()
-            if (owner.isPlayer()) {
-                const mp = this.mg.player(owner.id())
-                mp.relinquish(tile)
-                mp.removeTroops(2 * ratio[mp.id()])
-                if (!attacked.has(mp)) {
-                    attacked.set(mp, 0)
-                }
-                const prev = attacked.get(mp)
-                attacked.set(mp, prev + 1)
-            }
-            if (tile.isLand()) {
-                this.mg.addFallout(tile)
-            }
+    for (let i = 0; i < this.speed; i++) {
+      const x = this.mg.x(this.nuke.tile());
+      const y = this.mg.y(this.nuke.tile());
+      const dstX = this.mg.x(this.dst);
+      const dstY = this.mg.y(this.dst);
+
+      // If we've reached the destination, detonate
+      if (x === dstX && y === dstY) {
+        this.detonate();
+        return;
+      }
+
+      // Calculate next position
+      let nextX = x;
+      let nextY = y;
+
+      const ratio = Math.floor(
+        1 + Math.abs(dstY - y) / (Math.abs(dstX - x) + 1),
+      );
+
+      if (this.random.chance(ratio) && x != dstX) {
+        if (x < dstX) nextX++;
+        else if (x > dstX) nextX--;
+      } else {
+        if (y < dstY) nextY++;
+        else if (y > dstY) nextY--;
+      }
+
+      // Move to next tile
+      const nextTile = this.mg.ref(nextX, nextY);
+      if (nextTile !== undefined) {
+        this.nuke.move(nextTile);
+      } else {
+        consolex.warn(`invalid tile position ${nextX},${nextY}`);
+        this.active = false;
+        return;
+      }
+    }
+  }
+
+  private detonate() {
+    let magnitude;
+    switch (this.type) {
+      case UnitType.MIRVWarhead:
+        magnitude = { inner: 25, outer: 30 };
+        break;
+      case UnitType.AtomBomb:
+        magnitude = { inner: 12, outer: 30 };
+        break;
+      case UnitType.HydrogenBomb:
+        magnitude = { inner: 80, outer: 100 };
+        break;
+    }
+
+    const rand = new PseudoRandom(this.mg.ticks());
+    const toDestroy = this.mg.bfs(this.dst, (_, n: TileRef) => {
+      const d = this.mg.euclideanDist(this.dst, n);
+      return (d <= magnitude.inner || rand.chance(2)) && d <= magnitude.outer;
+    });
+
+    const attacked = new Map<Player, number>();
+    for (const tile of toDestroy) {
+      const owner = this.mg.owner(tile);
+      if (owner.isPlayer()) {
+        const mp = this.mg.player(owner.id());
+        mp.relinquish(tile);
+        mp.removeTroops((5 * mp.population()) / mp.numTilesOwned());
+        if (!attacked.has(mp)) {
+          attacked.set(mp, 0);
         }
-        for (const [other, tilesDestroyed] of attacked) {
-            if (tilesDestroyed > 100) {
-                const alliance = this.player.allianceWith(other)
-                if (alliance != null) {
-                    this.player.breakAlliance(alliance)
-                }
-            }
+        const prev = attacked.get(mp);
+        attacked.set(mp, prev + 1);
+      }
+      if (this.mg.isLand(tile)) {
+        this.mg.setFallout(tile, true);
+      }
+    }
+    for (const [other, tilesDestroyed] of attacked) {
+      if (tilesDestroyed > 100 && this.nuke.type() != UnitType.MIRVWarhead) {
+        // Mirv warheads shouldn't break alliances
+        const alliance = this.player.allianceWith(other);
+        if (alliance != null) {
+          this.player.breakAlliance(alliance);
         }
-
-        for (const unit of this.mg.units()) {
-            if (unit.type() != UnitType.AtomBomb && unit.type() != UnitType.HydrogenBomb) {
-                if (euclideanDist(this.cell, unit.tile().cell()) < magnitude.outer) {
-                    unit.delete()
-                }
-            }
+        if (other != this.player) {
+          other.updateRelation(this.player, -100);
         }
-        // this.mg.units()
-        //     .filter(b => euclideanDist(this.cell, b.tile().cell()) < this.magnitude + 50)
-        //     .forEach(b => b.delete())
-        this.active = false
-        this.nuke.delete(false)
+      }
     }
 
-    owner(): MutablePlayer {
-        return null
+    for (const unit of this.mg.units()) {
+      if (
+        unit.type() != UnitType.AtomBomb &&
+        unit.type() != UnitType.HydrogenBomb &&
+        unit.type() != UnitType.MIRVWarhead &&
+        unit.type() != UnitType.MIRV
+      ) {
+        if (this.mg.euclideanDist(this.dst, unit.tile()) < magnitude.outer) {
+          unit.delete();
+        }
+      }
     }
+    this.active = false;
+    this.nuke.delete(false);
+  }
 
-    isActive(): boolean {
-        return this.active
-    }
+  owner(): Player {
+    return this.player;
+  }
 
-    activeDuringSpawnPhase(): boolean {
-        return false
-    }
+  isActive(): boolean {
+    return this.active;
+  }
 
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
 }

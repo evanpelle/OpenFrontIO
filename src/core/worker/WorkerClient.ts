@@ -1,152 +1,172 @@
-import { Cell, Game, GameMap, TerrainTile, TerrainType, Tile } from "../game/Game";
-import { AStar, PathFindResultType } from "../pathfinding/AStar";
-import { MiniAStar } from "../pathfinding/MiniAStar";
-
+import {
+  PlayerActions,
+  PlayerID,
+  PlayerInfo,
+  PlayerProfile,
+} from "../game/Game";
+import { ErrorUpdate, GameUpdateViewData } from "../game/GameUpdates";
+import { ClientID, GameConfig, GameID, Turn } from "../Schemas";
+import { generateID } from "../Util";
+import { WorkerMessage } from "./WorkerMessages";
 
 export class WorkerClient {
-    private worker: Worker;
-    private isInitialized = false;
+  private worker: Worker;
+  private isInitialized = false;
+  private messageHandlers: Map<string, (message: WorkerMessage) => void>;
+  private gameUpdateCallback?: (
+    update: GameUpdateViewData | ErrorUpdate,
+  ) => void;
 
-    constructor(private game: Game, private gameMap: GameMap) {
-        // Create a new worker using webpack worker-loader
-        // The import.meta.url ensures webpack can properly bundle the worker
-        this.worker = new Worker(new URL('./Worker.worker.ts', import.meta.url));
+  constructor(
+    private gameID: GameID,
+    private gameConfig: GameConfig,
+    private clientID: ClientID,
+  ) {
+    this.worker = new Worker(new URL("./Worker.worker.ts", import.meta.url));
+    this.messageHandlers = new Map();
+
+    // Set up global message handler
+    this.worker.addEventListener(
+      "message",
+      this.handleWorkerMessage.bind(this),
+    );
+  }
+
+  private handleWorkerMessage(event: MessageEvent<WorkerMessage>) {
+    const message = event.data;
+
+    switch (message.type) {
+      case "game_update":
+        if (this.gameUpdateCallback && message.gameUpdate) {
+          this.gameUpdateCallback(message.gameUpdate);
+        }
+        break;
+
+      case "initialized":
+      default:
+        if (message.id && this.messageHandlers.has(message.id)) {
+          const handler = this.messageHandlers.get(message.id)!;
+          handler(message);
+          this.messageHandlers.delete(message.id);
+        }
+        break;
     }
+  }
 
-    initialize(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            this.worker.postMessage({
-                type: 'init',
-                gameMap: this.gameMap
-            });
+  initialize(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const messageId = generateID();
 
-            const handler = (e: MessageEvent) => {
-                if (e.data.type === 'initialized') {
-                    this.worker.removeEventListener('message', handler);
-                    this.isInitialized = true;
-                    resolve();
-                } else {
-                    this.worker.removeEventListener('message', handler);
-                    reject('Failed to initialize pathfinder');
-                }
-            };
+      this.messageHandlers.set(messageId, (message) => {
+        if (message.type === "initialized") {
+          this.isInitialized = true;
+          resolve();
+        }
+      });
 
-            this.worker.addEventListener('message', handler);
-        });
-    }
+      this.worker.postMessage({
+        type: "init",
+        id: messageId,
+        gameID: this.gameID,
+        gameConfig: this.gameConfig,
+        clientID: this.clientID,
+      });
 
-    createParallelAStar(src: Tile, dst: Tile, numTicks: number, types: TerrainType[]): ParallelAStar {
+      // Add timeout for initialization
+      setTimeout(() => {
         if (!this.isInitialized) {
-            throw new Error('PathFinder not initialized');
+          this.messageHandlers.delete(messageId);
+          reject(new Error("Worker initialization timeout"));
         }
-        return new ParallelAStar(this.game, this.worker, src, dst, numTicks, types);
+      }, 5000); // 5 second timeout
+    });
+  }
+
+  start(gameUpdate: (gu: GameUpdateViewData | ErrorUpdate) => void) {
+    if (!this.isInitialized) {
+      throw new Error("Failed to initialize pathfinder");
+    }
+    this.gameUpdateCallback = gameUpdate;
+  }
+
+  sendTurn(turn: Turn) {
+    if (!this.isInitialized) {
+      throw new Error("Worker not initialized");
     }
 
-    cleanup() {
-        this.worker.terminate();
-    }
-}
+    this.worker.postMessage({
+      type: "turn",
+      turn,
+    });
+  }
 
-export class ParallelAStar implements AStar {
-    private path: Cell[] | 'NOT_FOUND' | null = null;
-    private promise: Promise<void>;
+  sendHeartbeat() {
+    this.worker.postMessage({
+      type: "heartbeat",
+    });
+  }
 
-    constructor(
-        private game: Game,
-        private worker: Worker,
-        private src: Tile,
-        private dst: Tile,
-        private numTicks: number,
-        private terrainTypes: TerrainType[]
-    ) { }
+  playerProfile(playerID: number): Promise<PlayerProfile> {
+    return new Promise((resolve, reject) => {
+      if (!this.isInitialized) {
+        reject(new Error("Worker not initialized"));
+        return;
+      }
 
-    findPath(): Promise<void> {
-        const requestId = crypto.randomUUID();
-        this.promise = new Promise((resolve, reject) => {
+      const messageId = generateID();
 
-            const handler = (e: MessageEvent) => {
-                if (e.data.requestId != requestId) {
-                    return;
-                }
-                this.worker.removeEventListener('message', handler);
-
-                if (e.data.type === 'pathFound') {
-                    this.path = e.data.path
-                    resolve();
-                } else if (e.data.type === 'pathNotFound') {
-                    this.path = 'NOT_FOUND';
-                } else {
-                    reject(e.data.reason || "Path not found");
-                }
-            };
-
-            this.worker.addEventListener('message', handler);
-            this.worker.postMessage({
-                type: 'findPath',
-                requestId: requestId,
-                terrainTypes: this.terrainTypes,
-                currentTick: this.game.ticks(),
-                duration: this.numTicks,
-                start: { x: this.src.cell().x, y: this.src.cell().y },
-                end: { x: this.dst.cell().x, y: this.dst.cell().y }
-            });
-        });
-
-        return this.promise;
-    }
-
-    // TODO: rename to poll?
-    compute(): PathFindResultType {
-        if (this.promise == null) {
-            this.findPath();
+      this.messageHandlers.set(messageId, (message) => {
+        if (
+          message.type === "player_profile_result" &&
+          message.result !== undefined
+        ) {
+          resolve(message.result);
         }
-        this.numTicks--;
-        if (this.numTicks <= 0) {
-            if (this.path == 'NOT_FOUND') {
-                return PathFindResultType.PathNotFound;
-            }
-            if (this.path != null) {
-                return PathFindResultType.Completed;
-            }
-            // Path was not found in worker thread in time, so now we need
-            // to recompute it in main thread. This will lock up game.
-            console.warn(`path not completed in worker thread, recomputing`)
-            const local = new MiniAStar(
-                this.game.terrainMap(),
-                this.game.terrainMiniMap(),
-                this.src, this.dst,
-                (t: TerrainTile) => t.terrainType() == TerrainType.Ocean,
-                100_000_000,
-                20
-            )
-            const result = local.compute()
-            switch (result) {
-                case PathFindResultType.Completed:
-                    console.log('recomputed path in worker client')
-                    this.path = local.reconstructPath()
-                    break
-                case PathFindResultType.PathNotFound:
-                    this.path = "NOT_FOUND"
-                    break
-                case PathFindResultType.Pending:
-                    // TODO: make sure same number of tries as worker thread.
-                    console.warn("path not found after many tries")
-                    this.path = "NOT_FOUND"
-                    break
-            }
-            if (result == PathFindResultType.Completed) {
-                this.path = local.reconstructPath()
-            }
-            return result
-        }
-        return PathFindResultType.Pending;
-    }
+      });
 
-    reconstructPath(): Cell[] {
-        if (this.path == "NOT_FOUND" || this.path == null) {
-            throw Error(`cannot reconstruct path: ${this.path}`);
-        }
-        return this.path
-    }
+      this.worker.postMessage({
+        type: "player_profile",
+        id: messageId,
+        playerID: playerID,
+      });
+    });
+  }
 
+  playerInteraction(
+    playerID: PlayerID,
+    x: number,
+    y: number,
+  ): Promise<PlayerActions> {
+    return new Promise((resolve, reject) => {
+      if (!this.isInitialized) {
+        reject(new Error("Worker not initialized"));
+        return;
+      }
+
+      const messageId = generateID();
+
+      this.messageHandlers.set(messageId, (message) => {
+        if (
+          message.type === "player_actions_result" &&
+          message.result !== undefined
+        ) {
+          resolve(message.result);
+        }
+      });
+
+      this.worker.postMessage({
+        type: "player_actions",
+        id: messageId,
+        playerID: playerID,
+        x: x,
+        y: y,
+      });
+    });
+  }
+
+  cleanup() {
+    this.worker.terminate();
+    this.messageHandlers.clear();
+    this.gameUpdateCallback = undefined;
+  }
 }

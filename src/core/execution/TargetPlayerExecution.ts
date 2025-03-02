@@ -1,37 +1,51 @@
-import {Execution, MutableGame, MutablePlayer, PlayerID} from "../game/Game";
+import { Execution, Game, Player, PlayerID } from "../game/Game";
 
 export class TargetPlayerExecution implements Execution {
+  private requestor: Player;
+  private target: Player;
 
-    private requestor: MutablePlayer
-    private target: MutablePlayer
+  private active = true;
 
-    private active = true
+  constructor(
+    private requestorID: PlayerID,
+    private targetID: PlayerID,
+  ) {}
 
-    constructor(private requestorID: PlayerID, private targetID: PlayerID) { }
-
-
-    init(mg: MutableGame, ticks: number): void {
-        this.requestor = mg.player(this.requestorID)
-        this.target = mg.player(this.targetID)
+  init(mg: Game, ticks: number): void {
+    if (!mg.hasPlayer(this.requestorID)) {
+      console.warn(
+        `TargetPlayerExecution: requestor ${this.requestorID} not found`,
+      );
+      this.active = false;
+      return;
+    }
+    if (!mg.hasPlayer(this.targetID)) {
+      console.warn(`TargetPlayerExecution: target ${this.targetID} not found`);
+      this.active = false;
+      return;
     }
 
-    tick(ticks: number): void {
-        if (this.requestor.canTarget(this.target)) {
-            this.requestor.target(this.target)
-        }
-        this.active = false
-    }
+    this.requestor = mg.player(this.requestorID);
+    this.target = mg.player(this.targetID);
+  }
 
-    owner(): MutablePlayer {
-        return null
+  tick(ticks: number): void {
+    if (this.requestor.canTarget(this.target)) {
+      this.requestor.target(this.target);
+      this.target.updateRelation(this.requestor, -40);
     }
+    this.active = false;
+  }
 
-    isActive(): boolean {
-        return this.active
-    }
+  owner(): Player {
+    return null;
+  }
 
-    activeDuringSpawnPhase(): boolean {
-        return false
-    }
+  isActive(): boolean {
+    return this.active;
+  }
 
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
 }

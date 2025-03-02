@@ -1,28 +1,41 @@
-import {MutableAllianceRequest, Player, Tick} from "./Game";
-import {GameImpl} from "./GameImpl";
+import { AllianceRequest, Player, Tick } from "./Game";
+import { AllianceRequestUpdate } from "./GameUpdates";
+import { GameUpdateType } from "./GameUpdates";
+import { GameImpl } from "./GameImpl";
 
+export class AllianceRequestImpl implements AllianceRequest {
+  constructor(
+    private requestor_: Player,
+    private recipient_: Player,
+    private tickCreated: number,
+    private game: GameImpl,
+  ) {}
 
-export class AllianceRequestImpl implements MutableAllianceRequest {
+  requestor(): Player {
+    return this.requestor_;
+  }
 
-    constructor(private requestor_, private recipient_, private tickCreated: number, private game: GameImpl) { }
+  recipient(): Player {
+    return this.recipient_;
+  }
 
-    requestor(): Player {
-        return this.requestor_;
-    }
+  createdAt(): Tick {
+    return this.tickCreated;
+  }
 
-    recipient(): Player {
-        return this.recipient_;
-    }
+  accept(): void {
+    this.game.acceptAllianceRequest(this);
+  }
+  reject(): void {
+    this.game.rejectAllianceRequest(this);
+  }
 
-    createdAt(): Tick {
-        return this.tickCreated
-    }
-
-    accept(): void {
-        this.game.acceptAllianceRequest(this)
-    }
-    reject(): void {
-        this.game.rejectAllianceRequest(this)
-    }
-
+  toUpdate(): AllianceRequestUpdate {
+    return {
+      type: GameUpdateType.AllianceRequest,
+      requestorID: this.requestor_.smallID(),
+      recipientID: this.recipient_.smallID(),
+      createdAt: this.tickCreated,
+    };
+  }
 }

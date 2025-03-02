@@ -1,45 +1,59 @@
-import { Cell, Execution, MutableGame, MutablePlayer, MutableUnit, Player, PlayerID, Tile, Unit, UnitType } from "../game/Game";
+import { consolex } from "../Consolex";
+import {
+  Cell,
+  Execution,
+  Game,
+  Player,
+  Unit,
+  PlayerID,
+  UnitType,
+} from "../game/Game";
+import { TileRef } from "../game/GameMap";
 
 export class MissileSiloExecution implements Execution {
+  private active = true;
+  private mg: Game;
+  private player: Player;
+  private silo: Unit;
 
-    private active = true
-    private mg: MutableGame
-    private player: MutablePlayer
-    private silo: MutableUnit
+  constructor(
+    private _owner: PlayerID,
+    private tile: TileRef,
+  ) {}
 
-    constructor(
-        private _owner: PlayerID,
-        private cell: Cell
-    ) { }
-
-
-    init(mg: MutableGame, ticks: number): void {
-        this.mg = mg
-        this.player = mg.player(this._owner)
+  init(mg: Game, ticks: number): void {
+    if (!mg.hasPlayer(this._owner)) {
+      console.warn(`MissileSiloExecution: owner ${this._owner} not found`);
+      this.active = false;
+      return;
     }
 
-    tick(ticks: number): void {
-        if (this.silo == null) {
-            const tile = this.mg.tile(this.cell)
-            if (!this.player.canBuild(UnitType.MissileSilo, tile)) {
-                console.warn(`player ${this.player} cannot build port at ${this.cell}`)
-                this.active = false
-                return
-            }
-            this.silo = this.player.buildUnit(UnitType.MissileSilo, 0, tile)
-        }
-    }
+    this.mg = mg;
+    this.player = mg.player(this._owner);
+  }
 
-    owner(): MutablePlayer {
-        return null
+  tick(ticks: number): void {
+    if (this.silo == null) {
+      if (!this.player.canBuild(UnitType.MissileSilo, this.tile)) {
+        consolex.warn(
+          `player ${this.player} cannot build port at ${this.tile}`,
+        );
+        this.active = false;
+        return;
+      }
+      this.silo = this.player.buildUnit(UnitType.MissileSilo, 0, this.tile);
     }
+  }
 
-    isActive(): boolean {
-        return this.active
-    }
+  owner(): Player {
+    return null;
+  }
 
-    activeDuringSpawnPhase(): boolean {
-        return false
-    }
+  isActive(): boolean {
+    return this.active;
+  }
 
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
 }

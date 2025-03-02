@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Check if the --env flag is provided
 if [[ "$1" != "--env" ]]; then
     echo "Usage: $0 --env [dev|prod]"
@@ -19,20 +18,22 @@ fi
 if [[ "$ENV" == "dev" ]]; then
     INSTANCE_NAME="openfrontio-dev-instance"
     TAG="dev"
+    GAME_ENV="preprod"
     echo "[DEV] Deploying to openfront.dev"
 else
     INSTANCE_NAME="openfrontio-instance"
     TAG="latest"
+    GAME_ENV="prod"
     echo "[PROD] Deploying to openfront.io"
 fi
 
 # Ensure you're authenticated with Google Cloud
 gcloud auth configure-docker us-central1-docker.pkg.dev
 
-# Build the new Docker image
-docker build -t openfrontio .
+# Build the new Docker image with platform specification and GAME_ENV build argument
+docker build --platform linux/amd64 --build-arg GAME_ENV=$GAME_ENV -t openfrontio .
 
-# Tag the new image (use a version number or 'latest')
+# Tag the new image
 docker tag openfrontio us-central1-docker.pkg.dev/openfrontio/openfrontio/game-server:$TAG
 
 # Push the new image to Google Container Registry
@@ -40,9 +41,7 @@ docker push us-central1-docker.pkg.dev/openfrontio/openfrontio/game-server:$TAG
 
 # Prune Docker system on the instance
 gcloud compute ssh $INSTANCE_NAME --zone us-central1-a --command 'docker system prune -f -a'
-
 gcloud compute ssh $INSTANCE_NAME --zone us-central1-a --command 'docker kill $(docker ps -q)'
-
 gcloud compute ssh $INSTANCE_NAME --zone us-central1-a --command 'docker rmi $(docker images -q) -f'
 
 # Update the GCE instance with the new container image

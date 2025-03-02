@@ -1,11 +1,12 @@
-export interface GameEvent { }
+export interface GameEvent {}
 
 export interface EventConstructor<T extends GameEvent = GameEvent> {
-  new(...args: any[]): T;
+  new (...args: any[]): T;
 }
 
 export class EventBus {
-  private listeners: Map<EventConstructor, Array<(event: GameEvent) => void>> = new Map();
+  private listeners: Map<EventConstructor, Array<(event: GameEvent) => void>> =
+    new Map();
 
   emit<T extends GameEvent>(event: T): void {
     const eventConstructor = event.constructor as EventConstructor<T>;
@@ -19,7 +20,7 @@ export class EventBus {
 
   on<T extends GameEvent>(
     eventType: EventConstructor<T>,
-    callback: (event: T) => void
+    callback: (event: T) => void,
   ): void {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, []);
@@ -28,7 +29,10 @@ export class EventBus {
     callbacks.push(callback as (event: GameEvent) => void);
   }
 
-  off<T extends GameEvent>(eventType: EventConstructor<T>, callback: (event: T) => void): void {
+  off<T extends GameEvent>(
+    eventType: EventConstructor<T>,
+    callback: (event: T) => void,
+  ): void {
     const callbacks = this.listeners.get(eventType);
     if (callbacks) {
       const index = callbacks.indexOf(callback as (event: GameEvent) => void);

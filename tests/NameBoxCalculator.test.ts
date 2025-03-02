@@ -1,7 +1,6 @@
 // import {Game, Player, Tile, Cell, TerraNullius, PlayerInfo} from '../src/core/GameApi';
 // import {placeName, calculateBoundingBox, createGrid, findLargestInscribedRectangle, largestRectangleInHistogram, calculateFontSize} from '../src/client/NameBoxCalculator';
 
-
 // class MockPlayer implements Player {
 //     constructor(private playerTiles: [number, number][]) { }
 

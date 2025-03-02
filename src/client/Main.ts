@@ -1,145 +1,219 @@
-import { GameRunner, joinLobby } from "./GameRunner";
-import backgroundImage from '../../resources/images/TerrainMapFrontPage.png';
-import favicon from '../../resources/images/Favicon.svg';
-
-import './PublicLobby';
-import './UsernameInput';
-import './styles.css';
+import { ClientGameRunner, joinLobby } from "./ClientGameRunner";
+import favicon from "../../resources/images/Favicon.svg";
+import "./PublicLobby";
+import "./UsernameInput";
+import "./styles.css";
 import { UsernameInput } from "./UsernameInput";
 import { SinglePlayerModal } from "./SinglePlayerModal";
 import { HostLobbyModal as HostPrivateLobbyModal } from "./HostLobbyModal";
 import { JoinPrivateLobbyModal } from "./JoinPrivateLobbyModal";
-
-
-
+import { generateID } from "../core/Util";
+import { generateCryptoRandomUUID } from "./Utils";
+import { consolex } from "../core/Consolex";
+import "./FlagInput";
+import { FlagInput } from "./FlagInput";
+import page from "page";
+import { PublicLobby } from "./PublicLobby";
+import { UserSettings } from "../core/game/UserSettings";
+import "./DarkModeButton";
+import { DarkModeButton } from "./DarkModeButton";
+import "./GoogleAdElement";
+import { HelpModal } from "./HelpModal";
+import { GameType } from "../core/game/Game";
 
 class Client {
-    private gameStop: () => void
+  private gameStop: () => void;
 
-    private ip: Promise<string | null> = null
+  private usernameInput: UsernameInput | null = null;
+  private flagInput: FlagInput | null = null;
+  private darkModeButton: DarkModeButton | null = null;
 
-    private usernameInput: UsernameInput | null = null;
+  private joinModal: JoinPrivateLobbyModal;
+  private publicLobby: PublicLobby;
+  private userSettings: UserSettings = new UserSettings();
 
-    private joinModal: JoinPrivateLobbyModal
-    constructor() {
+  constructor() {}
+
+  initialize(): void {
+    this.flagInput = document.querySelector("flag-input") as FlagInput;
+    if (!this.flagInput) {
+      consolex.warn("Flag input element not found");
     }
 
-    initialize(): void {
-        this.usernameInput = document.querySelector('username-input') as UsernameInput;
-        if (!this.usernameInput) {
-            console.warn('Username input element not found');
+    this.darkModeButton = document.querySelector(
+      "dark-mode-button",
+    ) as DarkModeButton;
+    if (!this.darkModeButton) {
+      consolex.warn("Dark mode button element not found");
+    }
+
+    this.usernameInput = document.querySelector(
+      "username-input",
+    ) as UsernameInput;
+    if (!this.usernameInput) {
+      consolex.warn("Username input element not found");
+    }
+
+    this.publicLobby = document.querySelector("public-lobby") as PublicLobby;
+
+    window.addEventListener("beforeunload", (event) => {
+      consolex.log("Browser is closing");
+      if (this.gameStop != null) {
+        this.gameStop();
+      }
+    });
+
+    setFavicon();
+    document.addEventListener("join-lobby", this.handleJoinLobby.bind(this));
+    document.addEventListener("leave-lobby", this.handleLeaveLobby.bind(this));
+
+    const spModal = document.querySelector(
+      "single-player-modal",
+    ) as SinglePlayerModal;
+    spModal instanceof SinglePlayerModal;
+    document.getElementById("single-player").addEventListener("click", () => {
+      if (this.usernameInput.isValid()) {
+        spModal.open();
+      }
+    });
+
+    const hlpModal = document.querySelector("help-modal") as HelpModal;
+    hlpModal instanceof HelpModal;
+    document.getElementById("help-button").addEventListener("click", () => {
+      hlpModal.open();
+    });
+
+    const hostModal = document.querySelector(
+      "host-lobby-modal",
+    ) as HostPrivateLobbyModal;
+    hostModal instanceof HostPrivateLobbyModal;
+    document
+      .getElementById("host-lobby-button")
+      .addEventListener("click", () => {
+        if (this.usernameInput.isValid()) {
+          hostModal.open();
+          this.publicLobby.leaveLobby();
         }
-        window.addEventListener('beforeunload', (event) => {
-            console.log('Browser is closing');
-            if (this.gameStop != null) {
-                this.gameStop()
-            }
-        });
+      });
 
-        setFavicon()
-        this.ip = getClientIP()
-        document.addEventListener('join-lobby', this.handleJoinLobby.bind(this));
-        document.addEventListener('leave-lobby', this.handleLeaveLobby.bind(this));
-        document.addEventListener('single-player', this.handleSinglePlayer.bind(this));
-
-
-        const spModal = document.querySelector('single-player-modal') as SinglePlayerModal;
-        spModal instanceof SinglePlayerModal
-        document.getElementById('single-player').addEventListener('click', () => {
-            spModal.open();
-        })
-
-        const hostModal = document.querySelector('host-lobby-modal') as HostPrivateLobbyModal;
-        hostModal instanceof HostPrivateLobbyModal
-        document.getElementById('host-lobby-button').addEventListener('click', () => {
-            hostModal.open();
-        })
-
-        this.joinModal = document.querySelector('join-private-lobby-modal') as JoinPrivateLobbyModal;
-        this.joinModal instanceof JoinPrivateLobbyModal
-        document.getElementById('join-private-lobby-button').addEventListener('click', () => {
-            this.joinModal.open();
-        })
-    }
-
-    private async handleJoinLobby(event: CustomEvent) {
-        const lobby = event.detail.lobby
-        console.log(`joining lobby ${lobby.id}`)
-        const clientIP = await this.ip
-        console.log(`got ip ${clientIP}`)
-        if (this.gameStop != null) {
-            console.log('joining lobby, stopping existing game')
-            this.gameStop()
+    this.joinModal = document.querySelector(
+      "join-private-lobby-modal",
+    ) as JoinPrivateLobbyModal;
+    this.joinModal instanceof JoinPrivateLobbyModal;
+    document
+      .getElementById("join-private-lobby-button")
+      .addEventListener("click", () => {
+        if (this.usernameInput.isValid()) {
+          this.joinModal.open();
         }
-        this.gameStop = joinLobby(
-            {
-                gameType: event.detail.gameType,
-                playerName: (): string => this.usernameInput.getCurrentUsername(),
-                gameID: lobby.id,
-                ip: clientIP,
-                map: event.detail.map,
-                difficulty: event.detail.difficulty,
-            },
-            () => this.joinModal.close()
-        );
-    }
+      });
 
-    private async handleLeaveLobby(event: CustomEvent) {
-        if (this.gameStop == null) {
-            return
+    if (this.userSettings.darkMode()) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    page("/join/:lobbyId", (ctx) => {
+      if (ctx.init && sessionStorage.getItem("inLobby")) {
+        // On page reload, go back home
+        page.redirect("/");
+        return;
+      }
+      const lobbyId = ctx.params.lobbyId;
+
+      this.joinModal.open(lobbyId);
+
+      consolex.log(`joining lobby ${lobbyId}`);
+    });
+
+    page();
+  }
+
+  private async handleJoinLobby(event: CustomEvent) {
+    const lobby = event.detail.lobby;
+    consolex.log(`joining lobby ${lobby.id}`);
+    if (this.gameStop != null) {
+      consolex.log("joining lobby, stopping existing game");
+      this.gameStop();
+    }
+    const gameType = event.detail.gameType;
+    this.gameStop = joinLobby(
+      {
+        gameType: gameType,
+        flag: (): string =>
+          this.flagInput.getCurrentFlag() == "xx"
+            ? ""
+            : this.flagInput.getCurrentFlag(),
+        playerName: (): string => this.usernameInput.getCurrentUsername(),
+        gameID: lobby.gameID,
+        persistentID: getPersistentIDFromCookie(),
+        playerID: generateID(),
+        clientID: generateID(),
+        map: event.detail.map,
+        difficulty: event.detail.difficulty,
+        infiniteGold: event.detail.infiniteGold,
+        infiniteTroops: event.detail.infiniteTroops,
+        instantBuild: event.detail.instantBuild,
+        bots: event.detail.bots,
+        disableNPCs: event.detail.disableNPCs,
+      },
+      () => {
+        this.joinModal.close();
+        this.publicLobby.stop();
+        if (gameType != GameType.Singleplayer) {
+          window.history.pushState({}, "", `/join/${lobby.gameID}`);
+          sessionStorage.setItem("inLobby", "true");
         }
-        console.log('leaving lobby, cancelling game')
-        this.gameStop()
-        this.gameStop = null
+      },
+    );
+  }
+
+  private async handleLeaveLobby(event: CustomEvent) {
+    if (this.gameStop == null) {
+      return;
     }
-
-    private async handleSinglePlayer(event: CustomEvent) {
-        alert('coming soon')
-    }
-}
-
-async function getClientIP(timeoutMs: number = 1000): Promise<string | null> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-        const response: Response = await fetch('https://api.ipify.org?format=json', {
-            signal: controller.signal
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data: { ip: string } = await response.json();
-        return data.ip;
-    } catch (error) {
-        if (error instanceof Error) {
-            if (error.name === 'AbortError') {
-                console.error('Request timed out');
-            } else {
-                console.error('Error fetching IP:', error.message);
-            }
-        } else {
-            console.error('An unknown error occurred');
-        }
-        return null;
-    } finally {
-        clearTimeout(timeoutId);
-    }
+    consolex.log("leaving lobby, cancelling game");
+    this.gameStop();
+    this.gameStop = null;
+    this.publicLobby.leaveLobby();
+  }
 }
 
 // Initialize the client when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    new Client().initialize();
+document.addEventListener("DOMContentLoaded", () => {
+  new Client().initialize();
 });
 
-document.body.style.backgroundImage = `url(${backgroundImage})`;
-
 function setFavicon(): void {
-    const link = document.createElement('link');
-    link.type = 'image/x-icon';
-    link.rel = 'shortcut icon';
-    link.href = favicon;
-    document.head.appendChild(link);
+  const link = document.createElement("link");
+  link.type = "image/x-icon";
+  link.rel = "shortcut icon";
+  link.href = favicon;
+  document.head.appendChild(link);
+}
+
+// WARNING: DO NOT EXPOSE THIS ID
+export function getPersistentIDFromCookie(): string {
+  const COOKIE_NAME = "player_persistent_id";
+
+  // Try to get existing cookie
+  const cookies = document.cookie.split(";");
+  for (let cookie of cookies) {
+    const [cookieName, cookieValue] = cookie.split("=").map((c) => c.trim());
+    if (cookieName === COOKIE_NAME) {
+      return cookieValue;
+    }
+  }
+
+  // If no cookie exists, create new ID and set cookie
+  const newID = generateCryptoRandomUUID();
+  document.cookie = [
+    `${COOKIE_NAME}=${newID}`,
+    `max-age=${5 * 365 * 24 * 60 * 60}`, // 5 years
+    "path=/",
+    "SameSite=Strict",
+    "Secure",
+  ].join(";");
+
+  return newID;
 }

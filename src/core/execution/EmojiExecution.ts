@@ -1,43 +1,70 @@
-import {AllPlayers, Execution, MutableGame, MutablePlayer, PlayerID} from "../game/Game";
+import { consolex } from "../Consolex";
+import {
+  AllPlayers,
+  Execution,
+  Game,
+  Player,
+  PlayerID,
+  PlayerType,
+  UnitType,
+} from "../game/Game";
 
 export class EmojiExecution implements Execution {
+  private requestor: Player;
+  private recipient: Player | typeof AllPlayers;
 
-    private requestor: MutablePlayer
-    private recipient: MutablePlayer | typeof AllPlayers
+  private active = true;
 
-    private active = true
+  constructor(
+    private senderID: PlayerID,
+    private recipientID: PlayerID | typeof AllPlayers,
+    private emoji: string,
+  ) {}
 
-    constructor(
-        private senderID: PlayerID,
-        private recipientID: PlayerID | typeof AllPlayers,
-        private emoji: string
-    ) { }
-
-
-    init(mg: MutableGame, ticks: number): void {
-        this.requestor = mg.player(this.senderID)
-        this.recipient = this.recipientID == AllPlayers ? AllPlayers : mg.player(this.recipientID)
+  init(mg: Game, ticks: number): void {
+    if (!mg.hasPlayer(this.senderID)) {
+      console.warn(`EmojiExecution: sender ${this.senderID} not found`);
+      this.active = false;
+      return;
+    }
+    if (this.recipientID != AllPlayers && !mg.hasPlayer(this.recipientID)) {
+      console.warn(`EmojiExecution: recipient ${this.recipientID} not found`);
+      this.active = false;
+      return;
     }
 
-    tick(ticks: number): void {
-        if (this.requestor.canSendEmoji(this.recipient)) {
-            this.requestor.sendEmoji(this.recipient, this.emoji)
-        } else {
-            console.warn(`cannot send emoji from ${this.requestor} to ${this.recipient}`)
-        }
-        this.active = false
-    }
+    this.requestor = mg.player(this.senderID);
+    this.recipient =
+      this.recipientID == AllPlayers ? AllPlayers : mg.player(this.recipientID);
+  }
 
-    owner(): MutablePlayer {
-        return null
+  tick(ticks: number): void {
+    if (this.requestor.canSendEmoji(this.recipient)) {
+      this.requestor.sendEmoji(this.recipient, this.emoji);
+      if (
+        this.emoji == "🖕" &&
+        this.recipient != AllPlayers &&
+        this.recipient.type() == PlayerType.FakeHuman
+      ) {
+        this.recipient.updateRelation(this.requestor, -100);
+      }
+    } else {
+      consolex.warn(
+        `cannot send emoji from ${this.requestor} to ${this.recipient}`,
+      );
     }
+    this.active = false;
+  }
 
-    isActive(): boolean {
-        return this.active
-    }
+  owner(): Player {
+    return null;
+  }
 
-    activeDuringSpawnPhase(): boolean {
-        return false
-    }
+  isActive(): boolean {
+    return this.active;
+  }
 
+  activeDuringSpawnPhase(): boolean {
+    return false;
+  }
 }

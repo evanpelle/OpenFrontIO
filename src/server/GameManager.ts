@@ -1,100 +1,76 @@
-import { Config } from "../core/configuration/Config";
-import { ClientID, GameConfig, GameID } from "../core/Schemas";
-import { v4 as uuidv4 } from 'uuid';
+import { ServerConfig } from "../core/configuration/Config";
+import { GameConfig, GameID } from "../core/Schemas";
 import { Client } from "./Client";
 import { GamePhase, GameServer } from "./GameServer";
-import { Difficulty, GameMap, GameType } from "../core/game/Game";
-import { generateGameID } from "../core/Util";
-
-
+import { Difficulty, GameMapType, GameType } from "../core/game/Game";
+import { isHighTrafficTime } from "./Util";
 
 export class GameManager {
+  private games: Map<GameID, GameServer> = new Map();
 
-    private lastNewLobby: number = 0
+  constructor(private config: ServerConfig) {
+    setInterval(() => this.tick(), 1000);
+  }
 
-    private games: GameServer[] = []
+  public game(id: GameID): GameServer | null {
+    return this.games.get(id);
+  }
 
-    constructor(private config: Config) { }
-
-    gamesByPhase(phase: GamePhase): GameServer[] {
-        return this.games.filter(g => g.phase() == phase)
+  addClient(client: Client, gameID: GameID, lastTurn: number): boolean {
+    const game = this.games.get(gameID);
+    if (game) {
+      game.addClient(client, lastTurn);
+      return true;
     }
+    return false;
+  }
 
-    addClient(client: Client, gameID: GameID, lastTurn: number) {
-        const game = this.games.find(g => g.id == gameID)
-        if (!game) {
-            console.log(`game id ${gameID} not found`)
-            return
+  createGame(id: GameID, gameConfig: GameConfig | undefined) {
+    const game = new GameServer(
+      id,
+      Date.now(),
+      isHighTrafficTime(),
+      this.config,
+      {
+        gameMap: GameMapType.World,
+        gameType: GameType.Private,
+        difficulty: Difficulty.Medium,
+        disableNPCs: false,
+        infiniteGold: false,
+        infiniteTroops: false,
+        instantBuild: false,
+        bots: 400,
+        ...gameConfig,
+      },
+    );
+    this.games.set(id, game);
+    return game;
+  }
+
+  tick() {
+    const active = new Map<GameID, GameServer>();
+    for (const [id, game] of this.games) {
+      const phase = game.phase();
+      if (phase == GamePhase.Active) {
+        if (game.isPublic && !game.hasStarted()) {
+          try {
+            game.start();
+          } catch (error) {
+            console.log(`error starting game ${id}: ${error}`);
+          }
         }
-        game.addClient(client, lastTurn)
-    }
+      }
 
-    updateGameConfig(gameID: GameID, gameConfig: GameConfig) {
-        const game = this.games.find(g => g.id == gameID)
-        if (game == null) {
-            console.warn(`game ${gameID} not found`)
-            return
+      if (phase == GamePhase.Finished) {
+        try {
+          game.end();
+        } catch (error) {
+          console.log(`error ending game ${id}: ${error}`);
         }
-        game.updateGameConfig(gameConfig)
+      } else {
+        active.set(id, game);
+      }
     }
-
-    createPrivateGame(): string {
-        const id = generateGameID()
-        this.games.push(new GameServer(
-            id,
-            Date.now(),
-            false,
-            this.config,
-            {
-                gameMap: GameMap.World,
-                gameType: GameType.Private,
-                difficulty: Difficulty.Medium
-            }
-        ))
-        return id
-    }
-
-    hasActiveGame(gameID: GameID): boolean {
-        const game = this.games.filter(g => g.phase() == GamePhase.Lobby || g.phase() == GamePhase.Active).find(g => g.id == gameID)
-        return game != null
-    }
-
-    // TODO: stop private games to prevent memory leak.
-    startPrivateGame(gameID: GameID) {
-        const game = this.games.find(g => g.id == gameID)
-        console.log(`found game ${game}`)
-        if (game) {
-            game.start()
-        } else {
-            throw new Error(`cannot start private game, game ${gameID} not found`)
-        }
-    }
-
-    tick() {
-        const lobbies = this.gamesByPhase(GamePhase.Lobby)
-        const active = this.gamesByPhase(GamePhase.Active)
-        const finished = this.gamesByPhase(GamePhase.Finished)
-
-        const now = Date.now()
-        if (now > this.lastNewLobby + this.config.gameCreationRate()) {
-            this.lastNewLobby = now
-            lobbies.push(new GameServer(
-                generateGameID(),
-                now,
-                true,
-                this.config,
-                {
-                    gameMap: GameMap.World,
-                    gameType: GameType.Public,
-                    difficulty: Difficulty.Medium
-                }
-            ))
-        }
-
-        active.filter(g => !g.hasStarted() && g.isPublic).forEach(g => {
-            g.start()
-        })
-        finished.map(g => g.endGame());  // Fire and forget
-        this.games = [...lobbies, ...active]
-    }
+    this.games = active;
+  }
 }
